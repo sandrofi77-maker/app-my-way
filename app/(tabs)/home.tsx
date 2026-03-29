@@ -3,6 +3,7 @@ import {
   StyleSheet, Image, Animated
 } from 'react-native'
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { Colors } from '../../constants/Colors'
@@ -36,8 +37,10 @@ type TripWithMeta = Trip & {
 export default function HomeScreen() {
   const [trips, setTrips] = useState<TripWithMeta[]>([])
   const [userName, setUserName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'open' | 'completed'>('open')
   const [loading, setLoading] = useState(true)
+  const insets = useSafeAreaInsets()
 
   useFocusEffect(
     useCallback(() => { loadData() }, [])
@@ -47,7 +50,14 @@ export default function HomeScreen() {
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) setUserName(user.email?.split('@')[0] || 'viajante')
+      if (user) {
+        const displayName = (user.user_metadata?.full_name as string | undefined)
+          || (user.user_metadata?.display_name as string | undefined)
+          || user.email?.split('@')[0]
+          || 'viajante'
+        setUserName(displayName)
+        setAvatarUrl((user.user_metadata?.avatar_url as string | undefined) || null)
+      }
       const { data, error } = await supabase
         .from('trips')
         .select('*')
@@ -298,14 +308,17 @@ export default function HomeScreen() {
 
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.container}>
+      <View style={[styles.header, { paddingTop: 24 }]}>
         <View>
-          <Text style={styles.headerTitle}>My Way</Text>
-          <Text style={styles.headerSub}>Olá, {userName}!</Text>
+          <Text style={styles.headerTitle}>Olá, {userName}</Text>
         </View>
-        <TouchableOpacity style={styles.avatar} onPress={handleLogout}>
-          <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+        <TouchableOpacity style={styles.avatar} onPress={() => router.push('/profile')}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+          )}
         </TouchableOpacity>
       </View>
       <View style={styles.segment}>
@@ -332,7 +345,7 @@ export default function HomeScreen() {
         data={showLoading ? [] : visibleTrips}
         keyExtractor={(item) => item.id}
         renderItem={renderTrip}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: 100 + insets.bottom }]}
         ListEmptyComponent={
           showLoading ? (
             <SkeletonList />
@@ -350,29 +363,29 @@ export default function HomeScreen() {
         }
       />
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { bottom: 16 + insets.bottom }]}
         onPress={() => router.push('/new-trip')}
         activeOpacity={0.85}
       >
-        <Text style={styles.fabText}>+ Nova viagem</Text>
+        <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
   headerTitle: { fontSize: 24, fontWeight: '700', color: C.primary },
-  headerSub: { fontSize: 13, color: C.secondary, marginTop: 2 },
-  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.surface, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: C.accent, fontSize: 15, fontWeight: '600' },
+  avatar: { width: 76, height: 76, borderRadius: 38, backgroundColor: C.surface, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  avatarImage: { width: 76, height: 76, borderRadius: 38 },
+  avatarText: { color: C.accent, fontSize: 28, fontWeight: '600' },
   segment: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 10, backgroundColor: C.surface, borderRadius: 14, borderWidth: 0.5, borderColor: C.border, padding: 4 },
   segmentItem: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
   segmentItemActive: { backgroundColor: C.surfaceHigh },
   segmentText: { fontSize: 12, color: C.tertiary, fontWeight: '600' },
   segmentTextActive: { color: C.primary },
-  list: { padding: 20, paddingBottom: 120, paddingTop: 10 },
+  list: { padding: 20, paddingTop: 10 },
   skeletonList: { paddingTop: 6 },
   card: { backgroundColor: C.surface, borderRadius: 16, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, overflow: 'hidden' },
   cardImg: { width: '100%', height: 180 },
@@ -397,6 +410,16 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 48, marginBottom: 16 },
   emptyTitle: { fontSize: 16, fontWeight: '600', color: C.primary, marginBottom: 8 },
   emptyDesc: { fontSize: 13, color: C.secondary, textAlign: 'center' },
-  fab: { position: 'absolute', bottom: 32, left: 20, right: 20, backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  fabText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  fab: {
+    position: 'absolute',
+    bottom: 28,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: C.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabText: { fontSize: 30, fontWeight: '700', color: '#FFFFFF', lineHeight: 32 },
 })

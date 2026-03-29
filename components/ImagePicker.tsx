@@ -8,9 +8,11 @@ const C = Colors.dark
 type Props = {
   imageUri: string | null
   onImageSelected: (uri: string) => void
+  aspect?: [number, number]
+  allowsEditing?: boolean
 }
 
-export default function ImagePickerComponent({ imageUri, onImageSelected }: Props) {
+export default function ImagePickerComponent({ imageUri, onImageSelected, aspect, allowsEditing }: Props) {
 
   async function pickImage() {
     const permission = await ExpoImagePicker.requestMediaLibraryPermissionsAsync()
@@ -20,8 +22,8 @@ export default function ImagePickerComponent({ imageUri, onImageSelected }: Prop
     }
     const result = await ExpoImagePicker.launchImageLibraryAsync({
       mediaTypes: ExpoImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
+      allowsEditing: allowsEditing ?? true,
+      aspect: aspect ?? [16, 9],
       quality: 0.7,
     })
     if (!result.canceled && result.assets[0]) {

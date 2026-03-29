@@ -2,7 +2,7 @@
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Image, Alert, Modal,
   TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator
+  ActivityIndicator, Pressable
 } from 'react-native'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -137,7 +137,7 @@ export default function TripDetailScreen() {
       .from('flights')
       .select('*')
       .eq('trip_id', tripId)
-      .order('created_at', { ascending: false })
+      .order('departure_datetime', { ascending: true })
 
     if (!error) setFlights(data || [])
   }
@@ -189,6 +189,11 @@ export default function TripDetailScreen() {
     setArrivalDatetime(formatInputDateTime(flight.arrival_datetime))
     setFlightNotes(flight.notes || '')
     setFlightsModalVisible(true)
+  }
+
+  function handleCloseFlightModal() {
+    setFlightsModalVisible(false)
+    resetFlightForm()
   }
 
   async function handleSaveFlight() {
@@ -484,17 +489,27 @@ export default function TripDetailScreen() {
               <View style={styles.flightsList}>
                 {flights.map((flight) => (
                   <TouchableOpacity key={flight.id} style={styles.flightCard} activeOpacity={0.85} onPress={() => openEditFlightModal(flight)}>
-                    <View style={styles.flightHeader}>
-                      <Text style={styles.flightCode}>{flight.airline} - {flight.flight_number}</Text>
-                      <Text style={styles.flightCreatedAt}>{formatDateTime(flight.created_at)}</Text>
+                    <View style={styles.flightCardInner}>
+                      <View style={styles.flightIconCircle}>
+                        <Text style={styles.flightIconText}>✈</Text>
+                      </View>
+                      <View style={styles.flightCardContent}>
+                        <View style={styles.flightCardHeader}>
+                          <Text style={styles.flightRoute}>{flight.departure_airport} - {flight.arrival_airport}</Text>
+                          <Text style={styles.flightCode}>{flight.airline} - {flight.flight_number}</Text>
+                        </View>
+                        <View style={styles.flightDateRow}>
+                          <Text style={styles.flightDateText}>🛫 {formatDateTime(flight.departure_datetime)}</Text>
+                          {flight.arrival_datetime ? (
+                            <>
+                              <Text style={styles.flightDateSep}> • </Text>
+                              <Text style={styles.flightDateText}>🛬 {formatDateTime(flight.arrival_datetime)}</Text>
+                            </>
+                          ) : null}
+                        </View>
+                        {flight.notes ? <Text style={styles.flightNotes}>{flight.notes}</Text> : null}
+                      </View>
                     </View>
-                    <Text style={styles.flightRoute}>{flight.departure_airport} {'->'} {flight.arrival_airport}</Text>
-                    <Text style={styles.flightMeta}>Saida: {formatDateTime(flight.departure_datetime)}</Text>
-                    {flight.arrival_datetime ? (
-                      <Text style={styles.flightMeta}>Chegada: {formatDateTime(flight.arrival_datetime)}</Text>
-                    ) : null}
-                    {flight.notes ? <Text style={styles.flightNotes}>{flight.notes}</Text> : null}
-                    <Text style={styles.editFlightHint}>Toque para editar</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -562,9 +577,15 @@ export default function TripDetailScreen() {
       </ScrollView>
 
       <Modal visible={flightsModalVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>{editingFlightId ? 'Editar voo' : 'Novo voo'}</Text>
+        <Pressable style={styles.modalOverlay} onPress={handleCloseFlightModal}>
+          <KeyboardAvoidingView style={styles.modalKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <Pressable style={styles.modalBox} onPress={() => {}}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{editingFlightId ? 'Editar voo' : 'Novo voo'}</Text>
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={handleCloseFlightModal}>
+                  <Text style={styles.modalCloseText}>Fechar</Text>
+                </TouchableOpacity>
+              </View>
 
             <Text style={styles.modalLabel}>Companhia *</Text>
             <TextInput
@@ -642,10 +663,7 @@ export default function TripDetailScreen() {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => {
-                  setFlightsModalVisible(false)
-                  resetFlightForm()
-                }}
+                onPress={handleCloseFlightModal}
               >
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
@@ -659,8 +677,9 @@ export default function TripDetailScreen() {
                 <Text style={styles.deleteFlightBtnText}>{deletingFlight ? 'Excluindo...' : 'Excluir voo'}</Text>
               </TouchableOpacity>
             ) : null}
-          </View>
-        </KeyboardAvoidingView>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
       <Modal visible={accommodationModalVisible} animationType="slide" transparent>
@@ -829,13 +848,20 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '600', color: C.primary, marginBottom: 10, marginTop: 8 },
   sectionCard: { backgroundColor: C.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 0.5, borderColor: C.border },
   flightsList: { gap: 10, marginBottom: 12 },
-  flightCard: { backgroundColor: C.surfaceHigh, borderRadius: 10, borderWidth: 0.5, borderColor: C.border, padding: 12 },
+  flightCard: { backgroundColor: C.surfaceHigh, borderRadius: 14, borderWidth: 0.5, borderColor: C.border, padding: 14 },
+  flightCardInner: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  flightIconCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' },
+  flightIconText: { fontSize: 22 },
+  flightCardContent: { flex: 1 },
+  flightCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  flightRoute: { fontSize: 16, fontWeight: '700', color: C.primary },
+  flightCode: { fontSize: 12, color: C.secondary },
+  flightDateRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 2 },
+  flightDateText: { fontSize: 12, color: C.secondary },
+  flightDateSep: { fontSize: 12, color: C.tertiary },
   flightHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  flightCode: { fontSize: 13, color: C.primary, fontWeight: '600' },
-  flightCreatedAt: { fontSize: 10, color: C.tertiary },
-  flightRoute: { fontSize: 13, color: C.primary, marginTop: 6, fontWeight: '500' },
   flightMeta: { fontSize: 12, color: C.secondary, marginTop: 4 },
-  flightNotes: { fontSize: 12, color: C.tertiary, marginTop: 8 },
+  flightNotes: { fontSize: 12, color: C.accent, marginTop: 6 },
   editFlightHint: { fontSize: 11, color: C.accent, marginTop: 10, fontWeight: '500' },
   accommodationCard: { backgroundColor: C.surfaceHigh, borderRadius: 10, borderWidth: 0.5, borderColor: C.border, padding: 12 },
   accommodationImage: { width: '100%', height: 120, borderRadius: 8, marginBottom: 8 },
@@ -845,9 +871,13 @@ const styles = StyleSheet.create({
   addBtn: { borderWidth: 0.5, borderColor: C.accent, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7, alignSelf: 'center' },
   addBtnText: { color: C.accent, fontSize: 12, fontWeight: '500' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  modalKeyboard: { flex: 1, justifyContent: 'flex-end' },
   modalScrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
   modalBox: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 32 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 18, fontWeight: '700', color: C.primary, marginBottom: 8 },
+  modalCloseBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  modalCloseText: { fontSize: 12, color: C.accent, fontWeight: '600' },
   modalLabel: { fontSize: 12, color: C.secondary, marginBottom: 6, marginTop: 10 },
   modalInput: { backgroundColor: C.surfaceHigh, borderWidth: 0.5, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.primary },
   modalRow: { flexDirection: 'row', gap: 10 },
