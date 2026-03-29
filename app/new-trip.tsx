@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
 import { applyDateMask, getLocalDatePlaceholder, toISODateOrNull } from '../lib/date-locale'
+import { t } from '../lib/i18n'
 
 const C = Colors.dark
 
@@ -23,7 +24,7 @@ export default function NewTripScreen() {
 
   async function handleCreate() {
     if (!title.trim() || !destination.trim()) {
-      Alert.alert('Atencao', 'Preencha o nome e o destino.')
+      Alert.alert(t('attention_title'), t('required_trip_fields'))
       return
     }
 
@@ -31,19 +32,19 @@ export default function NewTripScreen() {
     const endDateISO = toISODateOrNull(endDate)
 
     if (startDate.trim() && !startDateISO) {
-      Alert.alert('Atencao', 'Data de ida invalida. Use o formato local do dispositivo.')
+      Alert.alert(t('attention_title'), t('invalid_departure_date'))
       return
     }
 
     if (endDate.trim() && !endDateISO) {
-      Alert.alert('Atencao', 'Data de volta invalida. Use o formato local do dispositivo.')
+      Alert.alert(t('attention_title'), t('invalid_return_date'))
       return
     }
 
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Sessao expirada.')
+      if (!user) throw new Error(t('session_expired'))
 
       const { error } = await supabase.from('trips').insert({
         title: title.trim(),
@@ -58,7 +59,7 @@ export default function NewTripScreen() {
       if (error) throw error
       router.back()
     } catch (err: any) {
-      Alert.alert('Erro', err.message)
+      Alert.alert(t('error_title'), err.message)
     } finally {
       setLoading(false)
     }

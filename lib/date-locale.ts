@@ -1,10 +1,12 @@
-const DATE_PART_ORDER = Intl.DateTimeFormat(undefined)
+import { getDeviceLocale } from './i18n'
+
+const DATE_PART_ORDER = Intl.DateTimeFormat(getDeviceLocale())
   .formatToParts(new Date(2001, 10, 22))
   .filter((part) => part.type === 'day' || part.type === 'month' || part.type === 'year')
   .map((part) => part.type as 'day' | 'month' | 'year')
 
 const DATE_SEPARATOR = (() => {
-  const parts = Intl.DateTimeFormat(undefined).formatToParts(new Date(2001, 10, 22))
+  const parts = Intl.DateTimeFormat(getDeviceLocale()).formatToParts(new Date(2001, 10, 22))
   return parts.find((part) => part.type === 'literal')?.value || '/'
 })()
 
@@ -62,14 +64,21 @@ function isValidDate(year: number, month: number, day: number) {
 }
 
 export function getLocalDatePlaceholder() {
-  return new Date(2026, 7, 10).toLocaleDateString(undefined)
+  return new Date(2026, 7, 10).toLocaleDateString(getDeviceLocale())
 }
 
 export function getLocalDateTimePlaceholder() {
-  return new Date(2026, 7, 10, 14, 30).toLocaleString(undefined, {
+  return new Date(2026, 7, 10, 14, 30).toLocaleString(getDeviceLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+export function getLocalTimePlaceholder() {
+  return new Date(2026, 7, 10, 14, 30).toLocaleTimeString(getDeviceLocale(), {
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -118,6 +127,12 @@ export function applyDateTimeMask(value: string) {
   return `${maskedDate} ${hour}:${minute}`
 }
 
+export function applyTimeMask(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 4)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`
+}
+
 export function toISODateOrNull(input: string) {
   const raw = input.trim()
   if (!raw) return null
@@ -161,4 +176,19 @@ export function toISODateTimeOrNull(input: string) {
   if (hour > 23 || minute > 59) return null
 
   return new Date(pieces.year, pieces.month - 1, pieces.day, hour, minute, 0).toISOString()
+}
+
+export function toTimeOrNull(input: string) {
+  const raw = input.trim()
+  if (!raw) return null
+
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return null
+
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null
+  if (hour > 23 || minute > 59) return null
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }

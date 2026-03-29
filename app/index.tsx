@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
+import { t } from '../lib/i18n'
 
 const C = Colors.dark
 
@@ -18,7 +19,7 @@ export default function LoginScreen() {
 
   async function handleAuth() {
     if (!email || !password) {
-      Alert.alert('Atenção', 'Preencha email e senha.')
+      Alert.alert(t('attention_title'), t('required_auth_fields'))
       return
     }
     setLoading(true)
@@ -26,14 +27,14 @@ export default function LoginScreen() {
       if (isRegister) {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
-        Alert.alert('Conta criada!', 'Verifique seu email para confirmar.')
+        Alert.alert(t('create_account_title'), t('create_account_body'))
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
         router.replace('/(tabs)/home')
       }
     } catch (err: any) {
-      Alert.alert('Erro', err.message || 'Algo deu errado.')
+      Alert.alert(t('error_title'), err.message || t('generic_error'))
     } finally {
       setLoading(false)
     }

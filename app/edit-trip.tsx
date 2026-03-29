@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
 import { applyDateMask, getLocalDatePlaceholder, toISODateOrNull } from '../lib/date-locale'
+import { t } from '../lib/i18n'
 
 const C = Colors.dark
 
@@ -32,7 +33,7 @@ export default function EditTripScreen() {
 
   async function handleSave() {
     if (!title.trim() || !destination.trim()) {
-      Alert.alert('Atencao', 'Preencha o nome e o destino.')
+      Alert.alert(t('attention_title'), t('required_trip_fields'))
       return
     }
 
@@ -40,12 +41,12 @@ export default function EditTripScreen() {
     const endDateISO = toISODateOrNull(endDate)
 
     if (startDate.trim() && !startDateISO) {
-      Alert.alert('Atencao', 'Data de ida invalida. Use o formato local do dispositivo.')
+      Alert.alert(t('attention_title'), t('invalid_departure_date'))
       return
     }
 
     if (endDate.trim() && !endDateISO) {
-      Alert.alert('Atencao', 'Data de volta invalida. Use o formato local do dispositivo.')
+      Alert.alert(t('attention_title'), t('invalid_return_date'))
       return
     }
 
@@ -65,7 +66,7 @@ export default function EditTripScreen() {
       if (error) throw error
       router.back()
     } catch (err: any) {
-      Alert.alert('Erro', err.message)
+      Alert.alert(t('error_title'), err.message)
     } finally {
       setLoading(false)
     }

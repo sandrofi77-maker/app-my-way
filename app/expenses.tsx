@@ -7,6 +7,7 @@ import { useState, useCallback } from 'react'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
+import { t, getDeviceLocale } from '../lib/i18n'
 
 const C = Colors.dark
 
@@ -36,7 +37,7 @@ function formatExpenseDate(date: string) {
     ? new Date(Number(onlyDate[1]), Number(onlyDate[2]) - 1, Number(onlyDate[3]))
     : new Date(date)
   if (Number.isNaN(parsedDate.getTime())) return date
-  return parsedDate.toLocaleDateString(undefined, {
+  return parsedDate.toLocaleDateString(getDeviceLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -66,7 +67,7 @@ export default function ExpensesScreen() {
 
   async function handleSave() {
     if (!amount || isNaN(Number(amount))) {
-      Alert.alert('Atenção', 'Digite um valor válido.')
+      Alert.alert(t('attention_title'), t('invalid_amount'))
       return
     }
     setSaving(true)
@@ -88,14 +89,14 @@ export default function ExpensesScreen() {
       setCategory('Alimentação')
       loadExpenses()
     } else {
-      Alert.alert('Erro', 'Não foi possível salvar.')
+      Alert.alert(t('error_title'), t('save_failed'))
     }
   }
 
   async function handleDelete(expenseId: string) {
-    Alert.alert('Excluir gasto', 'Remover este gasto?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: async () => {
+    Alert.alert(t('confirm_delete_expense_title'), t('confirm_delete_expense_body'), [
+      { text: t('cancel_label'), style: 'cancel' },
+      { text: t('delete_label'), style: 'destructive', onPress: async () => {
         await supabase.from('expenses').delete().eq('id', expenseId)
         loadExpenses()
       }}

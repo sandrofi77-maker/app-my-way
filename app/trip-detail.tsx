@@ -8,7 +8,9 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
-import { applyDateTimeMask, getLocalDateTimePlaceholder, toISODateTimeOrNull } from '../lib/date-locale'
+import { t, getDeviceLocale } from '../lib/i18n'
+import { applyDateMask, applyDateTimeMask, applyTimeMask, getLocalDatePlaceholder, getLocalDateTimePlaceholder, getLocalTimePlaceholder, toISODateOrNull, toISODateTimeOrNull, toTimeOrNull } from '../lib/date-locale'
+import ImagePickerComponent from '../components/ImagePicker'
 
 const C = Colors.dark
 
@@ -34,6 +36,20 @@ type Flight = {
   created_at: string
 }
 
+type Accommodation = {
+  id: string
+  name: string
+  location: string
+  link: string | null
+  check_in_date: string | null
+  check_out_date: string | null
+  check_in_time: string | null
+  check_out_time: string | null
+  description: string | null
+  image_url: string | null
+  created_at: string
+}
+
 function formatDate(date: string) {
   if (!date) return '--'
 
@@ -44,7 +60,7 @@ function formatDate(date: string) {
 
   if (Number.isNaN(parsedDate.getTime())) return date
 
-  return parsedDate.toLocaleDateString(undefined, {
+  return parsedDate.toLocaleDateString(getDeviceLocale(), {
     day: '2-digit', month: 'long', year: 'numeric'
   })
 }
@@ -54,7 +70,7 @@ function formatDateTime(value?: string | null) {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
 
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(getDeviceLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -69,10 +85,15 @@ export default function TripDetailScreen() {
 
   const [trip, setTrip] = useState<Trip | null>(null)
   const [flights, setFlights] = useState<Flight[]>([])
+  const [accommodations, setAccommodations] = useState<Accommodation[]>([])
   const [flightsModalVisible, setFlightsModalVisible] = useState(false)
+  const [accommodationModalVisible, setAccommodationModalVisible] = useState(false)
   const [savingFlight, setSavingFlight] = useState(false)
+  const [savingAccommodation, setSavingAccommodation] = useState(false)
   const [deletingFlight, setDeletingFlight] = useState(false)
+  const [deletingAccommodation, setDeletingAccommodation] = useState(false)
   const [editingFlightId, setEditingFlightId] = useState<string | null>(null)
+  const [editingAccommodationId, setEditingAccommodationId] = useState<string | null>(null)
 
   const [airline, setAirline] = useState('')
   const [flightNumber, setFlightNumber] = useState('')
@@ -82,11 +103,24 @@ export default function TripDetailScreen() {
   const [arrivalDatetime, setArrivalDatetime] = useState('')
   const [flightNotes, setFlightNotes] = useState('')
   const dateTimePlaceholder = getLocalDateTimePlaceholder()
+  const datePlaceholder = getLocalDatePlaceholder()
+  const timePlaceholder = getLocalTimePlaceholder()
+
+  const [accommodationName, setAccommodationName] = useState('')
+  const [accommodationLocation, setAccommodationLocation] = useState('')
+  const [accommodationLink, setAccommodationLink] = useState('')
+  const [accommodationCheckInDate, setAccommodationCheckInDate] = useState('')
+  const [accommodationCheckOutDate, setAccommodationCheckOutDate] = useState('')
+  const [accommodationCheckIn, setAccommodationCheckIn] = useState('')
+  const [accommodationCheckOut, setAccommodationCheckOut] = useState('')
+  const [accommodationDescription, setAccommodationDescription] = useState('')
+  const [accommodationImageUri, setAccommodationImageUri] = useState<string | null>(null)
 
   useFocusEffect(
     useCallback(() => {
       loadTrip()
       loadFlights()
+      loadAccommodations()
     }, [tripId])
   )
 
@@ -108,6 +142,18 @@ export default function TripDetailScreen() {
     if (!error) setFlights(data || [])
   }
 
+  async function loadAccommodations() {
+    if (!tripId) return
+
+    const { data, error } = await supabase
+      .from('accommodations')
+      .select('*')
+      .eq('trip_id', tripId)
+      .order('created_at', { ascending: false })
+
+    if (!error) setAccommodations(data || [])
+  }
+
   function resetFlightForm() {
     setEditingFlightId(null)
     setAirline('')
@@ -123,7 +169,7 @@ export default function TripDetailScreen() {
     if (!value) return ''
     const d = new Date(value)
     if (Number.isNaN(d.getTime())) return ''
-    const datePart = d.toLocaleDateString(undefined)
+    const datePart = d.toLocaleDateString(getDeviceLocale())
     const timePart = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
     return `${datePart} ${timePart}`
   }
@@ -147,7 +193,7 @@ export default function TripDetailScreen() {
 
   async function handleSaveFlight() {
     if (!airline.trim() || !flightNumber.trim() || !departureAirport.trim() || !arrivalAirport.trim() || !departureDatetime.trim()) {
-      Alert.alert('Atencao', 'Preencha os campos obrigatorios do voo.')
+      Alert.alert(t('attention_title'), t('required_flight_fields'))
       return
     }
 
@@ -155,12 +201,12 @@ export default function TripDetailScreen() {
     const arrivalISO = toISODateTimeOrNull(arrivalDatetime)
 
     if (!departureISO) {
-      Alert.alert('Atencao', 'Data/hora de saida invalida. Use o formato local do dispositivo.')
+      Alert.alert(t('attention_title'), t('invalid_departure_datetime'))
       return
     }
 
     if (arrivalDatetime.trim() && !arrivalISO) {
-      Alert.alert('Atencao', 'Data/hora de chegada invalida. Use o formato local do dispositivo.')
+      Alert.alert(t('attention_title'), t('invalid_arrival_datetime'))
       return
     }
 
@@ -192,7 +238,7 @@ export default function TripDetailScreen() {
       resetFlightForm()
       loadFlights()
     } catch (err: any) {
-      Alert.alert('Erro', err?.message || 'Nao foi possivel salvar o voo.')
+      Alert.alert(t('error_title'), err?.message || t('save_flight_failed'))
     } finally {
       setSavingFlight(false)
     }
@@ -201,10 +247,10 @@ export default function TripDetailScreen() {
   async function handleDeleteFlight() {
     if (!editingFlightId) return
 
-    Alert.alert('Excluir voo', 'Tem certeza que deseja excluir este voo?', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('confirm_delete_flight_title'), t('confirm_delete_flight_body'), [
+      { text: t('cancel_label'), style: 'cancel' },
       {
-        text: 'Excluir',
+        text: t('delete_label'),
         style: 'destructive',
         onPress: async () => {
           setDeletingFlight(true)
@@ -215,7 +261,7 @@ export default function TripDetailScreen() {
             resetFlightForm()
             loadFlights()
           } catch (err: any) {
-            Alert.alert('Erro', err?.message || 'Nao foi possivel excluir o voo.')
+            Alert.alert(t('error_title'), err?.message || t('delete_flight_failed'))
           } finally {
             setDeletingFlight(false)
           }
@@ -224,15 +270,139 @@ export default function TripDetailScreen() {
     ])
   }
 
-  async function handleDelete() {
-    Alert.alert('Excluir viagem', 'Tem certeza?', [
-      { text: 'Cancelar', style: 'cancel' },
+  function resetAccommodationForm() {
+    setEditingAccommodationId(null)
+    setAccommodationName('')
+    setAccommodationLocation('')
+    setAccommodationLink('')
+    setAccommodationCheckInDate('')
+    setAccommodationCheckOutDate('')
+    setAccommodationCheckIn('')
+    setAccommodationCheckOut('')
+    setAccommodationDescription('')
+    setAccommodationImageUri(null)
+  }
+
+  function openNewAccommodationModal() {
+    resetAccommodationForm()
+    setAccommodationModalVisible(true)
+  }
+
+  function openEditAccommodationModal(accommodation: Accommodation) {
+    setEditingAccommodationId(accommodation.id)
+    setAccommodationName(accommodation.name || '')
+    setAccommodationLocation(accommodation.location || '')
+    setAccommodationLink(accommodation.link || '')
+    setAccommodationCheckInDate(accommodation.check_in_date ? applyDateMask(accommodation.check_in_date) : '')
+    setAccommodationCheckOutDate(accommodation.check_out_date ? applyDateMask(accommodation.check_out_date) : '')
+    setAccommodationCheckIn(accommodation.check_in_time || '')
+    setAccommodationCheckOut(accommodation.check_out_time || '')
+    setAccommodationDescription(accommodation.description || '')
+    setAccommodationImageUri(accommodation.image_url || null)
+    setAccommodationModalVisible(true)
+  }
+
+  async function handleSaveAccommodation() {
+    if (!accommodationName.trim() || !accommodationLocation.trim()) {
+      Alert.alert(t('attention_title'), t('required_accommodation_fields'))
+      return
+    }
+
+    const checkInDate = toISODateOrNull(accommodationCheckInDate)
+    const checkOutDate = toISODateOrNull(accommodationCheckOutDate)
+    const checkIn = toTimeOrNull(accommodationCheckIn)
+    const checkOut = toTimeOrNull(accommodationCheckOut)
+
+    if (accommodationCheckInDate.trim() && !checkInDate) {
+      Alert.alert(t('attention_title'), t('invalid_checkin_date'))
+      return
+    }
+
+    if (accommodationCheckOutDate.trim() && !checkOutDate) {
+      Alert.alert(t('attention_title'), t('invalid_checkout_date'))
+      return
+    }
+
+    if (accommodationCheckIn.trim() && !checkIn) {
+      Alert.alert(t('attention_title'), t('invalid_checkin_time'))
+      return
+    }
+
+    if (accommodationCheckOut.trim() && !checkOut) {
+      Alert.alert(t('attention_title'), t('invalid_checkout_time'))
+      return
+    }
+
+    setSavingAccommodation(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      const payload = {
+        trip_id: tripId,
+        user_id: user?.id,
+        name: accommodationName.trim(),
+        location: accommodationLocation.trim(),
+        link: accommodationLink.trim() || null,
+        check_in_date: checkInDate,
+        check_out_date: checkOutDate,
+        check_in_time: checkIn,
+        check_out_time: checkOut,
+        description: accommodationDescription.trim() || null,
+        image_url: accommodationImageUri || null,
+      }
+
+      const request = editingAccommodationId
+        ? supabase.from('accommodations').update(payload).eq('id', editingAccommodationId)
+        : supabase.from('accommodations').insert(payload)
+
+      const { error } = await request
+      if (error) throw error
+
+      setAccommodationModalVisible(false)
+      resetAccommodationForm()
+      loadAccommodations()
+    } catch (err: any) {
+      Alert.alert(t('error_title'), err?.message || t('save_accommodation_failed'))
+    } finally {
+      setSavingAccommodation(false)
+    }
+  }
+
+  async function handleDeleteAccommodation() {
+    if (!editingAccommodationId) return
+
+    Alert.alert(t('confirm_delete_accommodation_title'), t('confirm_delete_accommodation_body'), [
+      { text: t('cancel_label'), style: 'cancel' },
       {
-        text: 'Excluir', style: 'destructive',
+        text: t('delete_label'),
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingAccommodation(true)
+          try {
+            const { error } = await supabase.from('accommodations').delete().eq('id', editingAccommodationId)
+            if (error) throw error
+            setAccommodationModalVisible(false)
+            resetAccommodationForm()
+            loadAccommodations()
+          } catch (err: any) {
+            Alert.alert(t('error_title'), err?.message || t('delete_accommodation_failed'))
+          } finally {
+            setDeletingAccommodation(false)
+          }
+        }
+      }
+    ])
+  }
+
+  async function handleDelete() {
+    Alert.alert(t('confirm_delete_trip_title'), t('confirm_delete_trip_body'), [
+      { text: t('cancel_label'), style: 'cancel' },
+      {
+        text: t('delete_label'), style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.from('trips').delete().eq('id', tripId)
           if (!error) router.back()
-          else Alert.alert('Erro', 'Nao foi possivel excluir.')
+          else Alert.alert(t('error_title'), t('delete_trip_failed'))
         }
       }
     ])
@@ -336,9 +506,36 @@ export default function TripDetailScreen() {
           </View>
 
           <Text style={styles.sectionTitle}>Hospedagem</Text>
-          <View style={styles.emptySection}>
-            <Text style={styles.emptySectionText}>Nenhuma hospedagem cadastrada</Text>
-            <TouchableOpacity style={styles.addBtn}>
+          <View style={styles.sectionCard}>
+            {accommodations.length === 0 ? (
+              <Text style={styles.emptySectionText}>Nenhuma hospedagem cadastrada</Text>
+            ) : (
+              <View style={styles.flightsList}>
+                {accommodations.map((accommodation) => (
+                  <TouchableOpacity
+                    key={accommodation.id}
+                    style={styles.accommodationCard}
+                    activeOpacity={0.85}
+                    onPress={() => openEditAccommodationModal(accommodation)}
+                  >
+                    {accommodation.image_url ? (
+                      <Image source={{ uri: accommodation.image_url }} style={styles.accommodationImage} resizeMode="cover" />
+                    ) : null}
+                    <Text style={styles.flightCode}>{accommodation.name}</Text>
+                    <Text style={styles.flightMeta}>{accommodation.location}</Text>
+                    {(accommodation.check_in_date || accommodation.check_in_time || accommodation.check_out_date || accommodation.check_out_time) ? (
+                      <Text style={styles.flightMeta}>
+                        Check-in: {formatDate(accommodation.check_in_date || '')} {accommodation.check_in_time || '--'} | Check-out: {formatDate(accommodation.check_out_date || '')} {accommodation.check_out_time || '--'}
+                      </Text>
+                    ) : null}
+                    {accommodation.link ? <Text style={styles.linkText}>{accommodation.link}</Text> : null}
+                    {accommodation.description ? <Text style={styles.flightNotes}>{accommodation.description}</Text> : null}
+                    <Text style={styles.editFlightHint}>Toque para editar</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <TouchableOpacity style={styles.addBtn} onPress={openNewAccommodationModal}>
               <Text style={styles.addBtnText}>+ Adicionar hospedagem</Text>
             </TouchableOpacity>
           </View>
@@ -465,6 +662,141 @@ export default function TripDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <Modal visible={accommodationModalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled">
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>{editingAccommodationId ? 'Editar hospedagem' : 'Nova hospedagem'}</Text>
+
+              <Text style={styles.modalLabel}>Imagem do local (1 foto)</Text>
+              <ImagePickerComponent imageUri={accommodationImageUri} onImageSelected={setAccommodationImageUri} />
+
+              <Text style={styles.modalLabel}>Nome *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Ex: Hotel Central"
+                placeholderTextColor={C.tertiary}
+                value={accommodationName}
+                onChangeText={setAccommodationName}
+              />
+
+              <Text style={styles.modalLabel}>Local *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Ex: Lisboa, Portugal"
+                placeholderTextColor={C.tertiary}
+                value={accommodationLocation}
+                onChangeText={setAccommodationLocation}
+              />
+
+              <Text style={styles.modalLabel}>Link</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="https://..."
+                placeholderTextColor={C.tertiary}
+                value={accommodationLink}
+                onChangeText={setAccommodationLink}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+
+              <View style={styles.modalRow}>
+                <View style={styles.modalCol}>
+                  <Text style={styles.modalLabel}>Data check-in</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder={datePlaceholder}
+                    placeholderTextColor={C.tertiary}
+                    value={accommodationCheckInDate}
+                    onChangeText={(value) => setAccommodationCheckInDate(applyDateMask(value))}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.modalCol}>
+                  <Text style={styles.modalLabel}>Horario check-in</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder={timePlaceholder}
+                    placeholderTextColor={C.tertiary}
+                    value={accommodationCheckIn}
+                    onChangeText={(value) => setAccommodationCheckIn(applyTimeMask(value))}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.modalRow}>
+                <View style={styles.modalCol}>
+                  <Text style={styles.modalLabel}>Data check-out</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder={datePlaceholder}
+                    placeholderTextColor={C.tertiary}
+                    value={accommodationCheckOutDate}
+                    onChangeText={(value) => setAccommodationCheckOutDate(applyDateMask(value))}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.modalCol}>
+                  <Text style={styles.modalLabel}>Horario check-out</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder={timePlaceholder}
+                    placeholderTextColor={C.tertiary}
+                    value={accommodationCheckOut}
+                    onChangeText={(value) => setAccommodationCheckOut(applyTimeMask(value))}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.modalLabel}>Descricao</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalNotes]}
+                placeholder="Detalhes da hospedagem"
+                placeholderTextColor={C.tertiary}
+                value={accommodationDescription}
+                onChangeText={setAccommodationDescription}
+                multiline
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => {
+                    setAccommodationModalVisible(false)
+                    resetAccommodationForm()
+                  }}
+                >
+                  <Text style={styles.cancelBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveBtn}
+                  onPress={handleSaveAccommodation}
+                  disabled={savingAccommodation || deletingAccommodation}
+                >
+                  {savingAccommodation ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.saveBtnText}>{editingAccommodationId ? 'Salvar edicao' : 'Salvar hospedagem'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {editingAccommodationId ? (
+                <TouchableOpacity
+                  style={styles.deleteFlightBtn}
+                  onPress={handleDeleteAccommodation}
+                  disabled={deletingAccommodation || savingAccommodation}
+                >
+                  <Text style={styles.deleteFlightBtnText}>{deletingAccommodation ? 'Excluindo...' : 'Excluir hospedagem'}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </>
   )
 }
@@ -505,11 +837,15 @@ const styles = StyleSheet.create({
   flightMeta: { fontSize: 12, color: C.secondary, marginTop: 4 },
   flightNotes: { fontSize: 12, color: C.tertiary, marginTop: 8 },
   editFlightHint: { fontSize: 11, color: C.accent, marginTop: 10, fontWeight: '500' },
+  accommodationCard: { backgroundColor: C.surfaceHigh, borderRadius: 10, borderWidth: 0.5, borderColor: C.border, padding: 12 },
+  accommodationImage: { width: '100%', height: 120, borderRadius: 8, marginBottom: 8 },
+  linkText: { fontSize: 12, color: C.accent, marginTop: 6 },
   emptySection: { backgroundColor: C.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, alignItems: 'center' },
   emptySectionText: { fontSize: 13, color: C.tertiary, marginBottom: 10 },
   addBtn: { borderWidth: 0.5, borderColor: C.accent, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7, alignSelf: 'center' },
   addBtnText: { color: C.accent, fontSize: 12, fontWeight: '500' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  modalScrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
   modalBox: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 32 },
   modalTitle: { fontSize: 18, fontWeight: '700', color: C.primary, marginBottom: 8 },
   modalLabel: { fontSize: 12, color: C.secondary, marginBottom: 6, marginTop: 10 },

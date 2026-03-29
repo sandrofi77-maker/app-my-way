@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native'
 import * as ExpoImagePicker from 'expo-image-picker'
 import { Colors } from '../constants/Colors'
+import { t } from '../lib/i18n'
 
 const C = Colors.dark
 
@@ -14,7 +15,7 @@ export default function ImagePickerComponent({ imageUri, onImageSelected }: Prop
   async function pickImage() {
     const permission = await ExpoImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert('Permissão necessária', 'Precisamos acessar sua galeria para escolher a foto.')
+      Alert.alert(t('permission_needed_title'), t('permission_needed_body'))
       return
     }
     const result = await ExpoImagePicker.launchImageLibraryAsync({
