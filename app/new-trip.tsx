@@ -1,4 +1,4 @@
-import {
+﻿import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, ActivityIndicator, Alert
@@ -8,6 +8,7 @@ import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
+import { applyDateMask, getLocalDatePlaceholder, toISODateOrNull } from '../lib/date-locale'
 
 const C = Colors.dark
 
@@ -18,25 +19,42 @@ export default function NewTripScreen() {
   const [endDate, setEndDate] = useState('')
   const [imageUri, setImageUri] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const datePlaceholder = getLocalDatePlaceholder()
 
   async function handleCreate() {
     if (!title.trim() || !destination.trim()) {
-      Alert.alert('Atenção', 'Preencha o nome e o destino.')
+      Alert.alert('Atencao', 'Preencha o nome e o destino.')
       return
     }
+
+    const startDateISO = toISODateOrNull(startDate)
+    const endDateISO = toISODateOrNull(endDate)
+
+    if (startDate.trim() && !startDateISO) {
+      Alert.alert('Atencao', 'Data de ida invalida. Use o formato local do dispositivo.')
+      return
+    }
+
+    if (endDate.trim() && !endDateISO) {
+      Alert.alert('Atencao', 'Data de volta invalida. Use o formato local do dispositivo.')
+      return
+    }
+
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Sessão expirada.')
+      if (!user) throw new Error('Sessao expirada.')
+
       const { error } = await supabase.from('trips').insert({
         title: title.trim(),
         destination: destination.trim(),
-        start_date: startDate.trim() || null,
-        end_date: endDate.trim() || null,
+        start_date: startDateISO,
+        end_date: endDateISO,
         cover_image: imageUri || null,
         owner_id: user.id,
         status: 'planning',
       })
+
       if (error) throw error
       router.back()
     } catch (err: any) {
@@ -50,19 +68,51 @@ export default function NewTripScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>← Voltar</Text>
+          <Text style={styles.backText}>{'<'} Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.pageTitle}>Nova viagem</Text>
+
         <Text style={styles.label}>Foto de capa (opcional)</Text>
         <ImagePickerComponent imageUri={imageUri} onImageSelected={setImageUri} />
+
         <Text style={styles.label}>Nome da viagem *</Text>
-        <TextInput style={styles.input} placeholder="Ex: Férias em Paris" placeholderTextColor={C.tertiary} value={title} onChangeText={setTitle} />
+        <TextInput
+          style={styles.input}
+          placeholder="Ex: Ferias em Paris"
+          placeholderTextColor={C.tertiary}
+          value={title}
+          onChangeText={setTitle}
+        />
+
         <Text style={styles.label}>Destino *</Text>
-        <TextInput style={styles.input} placeholder="Ex: Paris" placeholderTextColor={C.tertiary} value={destination} onChangeText={setDestination} />
+        <TextInput
+          style={styles.input}
+          placeholder="Ex: Paris"
+          placeholderTextColor={C.tertiary}
+          value={destination}
+          onChangeText={setDestination}
+        />
+
         <Text style={styles.label}>Data de ida (opcional)</Text>
-        <TextInput style={styles.input} placeholder="2025-06-15" placeholderTextColor={C.tertiary} value={startDate} onChangeText={setStartDate} keyboardType="numbers-and-punctuation" />
+        <TextInput
+          style={styles.input}
+          placeholder={datePlaceholder}
+          placeholderTextColor={C.tertiary}
+          value={startDate}
+          onChangeText={(value) => setStartDate(applyDateMask(value))}
+          keyboardType="numeric"
+        />
+
         <Text style={styles.label}>Data de volta (opcional)</Text>
-        <TextInput style={styles.input} placeholder="2025-06-25" placeholderTextColor={C.tertiary} value={endDate} onChangeText={setEndDate} keyboardType="numbers-and-punctuation" />
+        <TextInput
+          style={styles.input}
+          placeholder={datePlaceholder}
+          placeholderTextColor={C.tertiary}
+          value={endDate}
+          onChangeText={(value) => setEndDate(applyDateMask(value))}
+          keyboardType="numeric"
+        />
+
         <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleCreate} disabled={loading}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Criar viagem</Text>}
         </TouchableOpacity>

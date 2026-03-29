@@ -29,6 +29,20 @@ type Expense = {
   date: string
 }
 
+function formatExpenseDate(date: string) {
+  if (!date) return '--'
+  const onlyDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  const parsedDate = onlyDate
+    ? new Date(Number(onlyDate[1]), Number(onlyDate[2]) - 1, Number(onlyDate[3]))
+    : new Date(date)
+  if (Number.isNaN(parsedDate.getTime())) return date
+  return parsedDate.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
 export default function ExpensesScreen() {
   const { id: tripId, title: tripTitle } = useLocalSearchParams()
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -138,7 +152,7 @@ export default function ExpensesScreen() {
             <View style={styles.expenseInfo}>
               <Text style={styles.expenseCategory}>{item.category}</Text>
               {item.description ? <Text style={styles.expenseDesc}>{item.description}</Text> : null}
-              <Text style={styles.expenseDate}>{item.date}</Text>
+              <Text style={styles.expenseDate}>{formatExpenseDate(item.date)}</Text>
             </View>
             <Text style={styles.expenseAmount}>{item.currency} {item.amount.toFixed(2)}</Text>
           </TouchableOpacity>

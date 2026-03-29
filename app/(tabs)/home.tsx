@@ -52,7 +52,12 @@ export default function HomeScreen() {
 
   function formatDate(date: string) {
     if (!date) return ''
-    return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+    const onlyDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+    const parsedDate = onlyDate
+      ? new Date(Number(onlyDate[1]), Number(onlyDate[2]) - 1, Number(onlyDate[3]))
+      : new Date(date)
+    if (Number.isNaN(parsedDate.getTime())) return date
+    return parsedDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
   }
 
   function renderTrip({ item }: { item: Trip }) {
