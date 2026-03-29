@@ -50,6 +50,21 @@ type Accommodation = {
   created_at: string
 }
 
+type Expense = {
+  id: string
+  category: string
+  amount: number
+  currency: string
+  description: string
+  date: string
+  created_at: string
+}
+
+const CATEGORY_ICONS: Record<string, string> = {
+  'Hospedagem': '🏨', 'Alimentação': '🍽️', 'Transporte': '🚗',
+  'Passeios': '🎭', 'Compras': '🛍️', 'Saúde': '💊', 'Outros': '💰'
+}
+
 function formatDate(date: string) {
   if (!date) return '--'
 
@@ -86,6 +101,7 @@ export default function TripDetailScreen() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [flights, setFlights] = useState<Flight[]>([])
   const [accommodations, setAccommodations] = useState<Accommodation[]>([])
+  const [expenses, setExpenses] = useState<Expense[]>([])
   const [flightsModalVisible, setFlightsModalVisible] = useState(false)
   const [accommodationModalVisible, setAccommodationModalVisible] = useState(false)
   const [savingFlight, setSavingFlight] = useState(false)
@@ -121,6 +137,7 @@ export default function TripDetailScreen() {
       loadTrip()
       loadFlights()
       loadAccommodations()
+      loadExpenses()
     }, [tripId])
   )
 
@@ -152,6 +169,18 @@ export default function TripDetailScreen() {
       .order('created_at', { ascending: false })
 
     if (!error) setAccommodations(data || [])
+  }
+
+  async function loadExpenses() {
+    if (!tripId) return
+
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('trip_id', tripId)
+      .order('date', { ascending: true })
+
+    if (!error) setExpenses(data || [])
   }
 
   function resetFlightForm() {
@@ -564,8 +593,75 @@ export default function TripDetailScreen() {
           </View>
 
           <Text style={styles.sectionTitle}>Gastos</Text>
-          <View style={styles.emptySection}>
-            <Text style={styles.emptySectionText}>Nenhum gasto registrado</Text>
+          <View style={styles.sectionCard}>
+            {expenses.length === 0 ? (
+              <Text style={styles.emptySectionText}>Nenhum gasto registrado</Text>
+            ) : (() => {
+              const total = expenses.reduce((sum, e) => sum + e.amount, 0)
+              const currency = expenses[expenses.length - 1]?.currency || 'BRL'
+
+              const byDay: Record<string, number> = {}
+              for (const e of expenses) {
+                byDay[e.date] = (byDay[e.date] || 0) + e.amount
+              }
+
+              // Gera os últimos 15 dias a partir de hoje, preenchendo com 0 quando sem gasto
+              const last15: { date: string; val: number }[] = []
+              for (let i = 14; i >= 0; i--) {
+                const d = new Date()
+                d.setDate(d.getDate() - i)
+                const key = d.toISOString().split('T')[0]
+                last15.push({ date: key, val: byDay[key] || 0 })
+              }
+              const maxDay = Math.max(...last15.map((x) => x.val), 1)
+
+              const recent = [...expenses].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3)
+
+              return (
+                <>
+                  <Text style={styles.expensesTotal}>
+                    {currency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
+                  <Text style={styles.expensesTotalLabel}>total gasto</Text>
+
+                  <View style={styles.barChart}>
+                    {last15.map(({ date, val }) => {
+                      const [, m, d] = date.split('-')
+                      const label = `${d}/${m}`
+                      const pct = val / maxDay
+                      return (
+                        <View key={date} style={styles.barCol}>
+                          <View style={styles.barTrack}>
+                            {val > 0 ? (
+                              <View style={[styles.bar, { height: Math.max(6, pct * 80) }]} />
+                            ) : (
+                              <View style={styles.barEmpty} />
+                            )}
+                          </View>
+                          <Text style={styles.barLabel}>{label}</Text>
+                        </View>
+                      )
+                    })}
+                  </View>
+
+                  <View style={styles.recentExpenses}>
+                    {recent.map((e) => (
+                      <View key={e.id} style={styles.recentExpenseItem}>
+                        <Text style={styles.recentExpenseIcon}>{CATEGORY_ICONS[e.category] || '💰'}</Text>
+                        <View style={styles.recentExpenseMiddle}>
+                          <Text style={styles.recentExpenseCategory}>{e.category}</Text>
+                          {e.description ? <Text style={styles.recentExpenseDesc} numberOfLines={1}>{e.description}</Text> : null}
+                        </View>
+                        <Text style={styles.recentExpenseAmount}>
+                          {e.currency} {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )
+            })()}
+
             <TouchableOpacity
               style={styles.addBtn}
               onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
@@ -890,4 +986,19 @@ const styles = StyleSheet.create({
   saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   deleteFlightBtn: { marginTop: 12, borderWidth: 0.5, borderColor: C.error, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   deleteFlightBtnText: { color: C.error, fontSize: 14, fontWeight: '600' },
+  expensesTotal: { fontSize: 28, fontWeight: '700', color: C.primary, textAlign: 'center', marginTop: 4 },
+  expensesTotalLabel: { fontSize: 12, color: C.tertiary, textAlign: 'center', marginBottom: 16 },
+  barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 4 },
+  barCol: { flex: 1, alignItems: 'center', gap: 4 },
+  barTrack: { width: '100%', height: 64, justifyContent: 'flex-end' },
+  bar: { width: '100%', backgroundColor: '#4A7CF7', borderRadius: 6, borderTopLeftRadius: 6, borderTopRightRadius: 6 },
+  barEmpty: { width: '100%', height: 3, backgroundColor: C.border, borderRadius: 3 },
+  barLabel: { fontSize: 10, color: C.tertiary },
+  recentExpenses: { gap: 8, marginBottom: 12 },
+  recentExpenseItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  recentExpenseIcon: { fontSize: 18, width: 28, textAlign: 'center' },
+  recentExpenseMiddle: { flex: 1 },
+  recentExpenseCategory: { fontSize: 13, fontWeight: '600', color: C.primary },
+  recentExpenseDesc: { fontSize: 11, color: C.tertiary },
+  recentExpenseAmount: { fontSize: 13, fontWeight: '600', color: C.primary },
 })

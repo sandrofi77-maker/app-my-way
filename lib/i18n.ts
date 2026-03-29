@@ -5,6 +5,8 @@ type LocaleStrings = {
   error_title: string
   confirm_delete_expense_title: string
   confirm_delete_expense_body: string
+  confirm_delete_expense_second_title: string
+  confirm_delete_expense_second_body: string
   confirm_delete_flight_title: string
   confirm_delete_flight_body: string
   confirm_delete_accommodation_title: string
@@ -46,6 +48,8 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     error_title: 'Erro',
     confirm_delete_expense_title: 'Excluir gasto',
     confirm_delete_expense_body: 'Remover este gasto?',
+    confirm_delete_expense_second_title: 'Confirmar exclusao',
+    confirm_delete_expense_second_body: 'Essa acao nao pode ser desfeita. Deseja excluir?',
     confirm_delete_flight_title: 'Excluir voo',
     confirm_delete_flight_body: 'Tem certeza que deseja excluir este voo?',
     confirm_delete_accommodation_title: 'Excluir hospedagem',
@@ -85,6 +89,8 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     error_title: 'Error',
     confirm_delete_expense_title: 'Delete expense',
     confirm_delete_expense_body: 'Remove this expense?',
+    confirm_delete_expense_second_title: 'Confirm deletion',
+    confirm_delete_expense_second_body: 'This action cannot be undone. Delete it?',
     confirm_delete_flight_title: 'Delete flight',
     confirm_delete_flight_body: 'Are you sure you want to delete this flight?',
     confirm_delete_accommodation_title: 'Delete accommodation',
