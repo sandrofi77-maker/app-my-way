@@ -10,6 +10,7 @@ import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
 import { applyDateMask, getLocalDatePlaceholder, toISODateOrNull } from '../lib/date-locale'
 import { t } from '../lib/i18n'
+import Icon from '../components/Icon'
 
 const C = Colors.dark
 
@@ -69,7 +70,7 @@ export default function NewTripScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>{'<'} Voltar</Text>
+          <Icon name="arrow-back" size={22} color={C.accent} />
         </TouchableOpacity>
         <Text style={styles.pageTitle}>Nova viagem</Text>
 

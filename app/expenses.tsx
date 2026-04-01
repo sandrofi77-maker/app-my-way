@@ -3,12 +3,12 @@ import {
   StyleSheet, Alert, TextInput, Modal,
   KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native'
-import { useState, useCallback, useEffect, useRef } from 'react'
+import Icon from '../components/Icon'
+import { useState, useCallback, useRef } from 'react'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import { t, getDeviceLocale } from '../lib/i18n'
-import ImagePickerComponent from '../components/ImagePicker'
 
 const C = Colors.dark
 
@@ -17,9 +17,9 @@ const CATEGORIES = [
   'Passeios', 'Compras', 'Saúde', 'Outros'
 ]
 
-const CATEGORY_ICONS: Record<string, string> = {
-  'Hospedagem': '🏨', 'Alimentação': '🍽', 'Transporte': '🚗',
-  'Passeios': '🎭', 'Compras': '🛍', 'Saúde': '💊', 'Outros': '💰'
+const CATEGORY_ICON_NAMES: Record<string, string> = {
+  'Hospedagem': 'hotel', 'Alimentação': 'restaurant', 'Transporte': 'directions-car',
+  'Passeios': 'attractions', 'Compras': 'shopping-bag', 'Saúde': 'medical-services', 'Outros': 'payments'
 }
 
 type Expense = {
@@ -96,6 +96,11 @@ export default function ExpensesScreen() {
     setDate(expense.date || new Date().toISOString().split('T')[0])
     setImageUri(expense.image_url || null)
     setModalVisible(true)
+  }
+
+  function handleCloseExpenseModal() {
+    setModalVisible(false)
+    resetForm()
   }
 
   async function handleSave() {
@@ -197,14 +202,14 @@ export default function ExpensesScreen() {
       <View>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backText}>{'<'}</Text>
+            <Icon name="arrow-back" size={22} color={C.accent} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Gastos</Text>
             <Text style={styles.tripName}>{tripTitle as string}</Text>
           </View>
           <TouchableOpacity style={styles.moreBtn}>
-            <Text style={styles.moreText}>{'\u22EE'}</Text>
+            <Icon name="more-vert" size={22} color={C.secondary} />
           </TouchableOpacity>
         </View>
 
@@ -248,9 +253,7 @@ export default function ExpensesScreen() {
                 activeOpacity={0.85}
               >
                 <View style={[styles.categoryIconBadge, selected && styles.categoryIconBadgeActive]}>
-                  <Text style={styles.categoryEmoji}>
-                    {cat === 'Todos' ? '\u{1F4B0}' : (CATEGORY_ICONS[cat] || '\u{1F4B0}')}
-                  </Text>
+                  <Icon name={(CATEGORY_ICON_NAMES[cat] || 'payments') as any} size={24} color={selected ? '#fff' : '#1E2B45'} />
                 </View>
                 <Text
                   style={[styles.categoryAmount, selected && styles.categoryAmountActive]}
@@ -287,7 +290,7 @@ export default function ExpensesScreen() {
         }
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.expenseCard} onPress={() => openEditExpense(item)} activeOpacity={0.8}>
-            <Text style={styles.expenseIcon}>{CATEGORY_ICONS[item.category] || '💰'}</Text>
+            <Icon name={(CATEGORY_ICON_NAMES[item.category] || 'payments') as any} size={24} color={C.primary} />
             <View style={styles.expenseInfo}>
               <Text style={styles.expenseCategory}>{item.category}</Text>
               {item.description ? <Text style={styles.expenseDesc}>{item.description}</Text> : null}
@@ -299,48 +302,61 @@ export default function ExpensesScreen() {
       />
 
       <TouchableOpacity style={styles.fab} onPress={openNewExpense}>
-        <Text style={styles.fabText}>+ Novo gasto</Text>
+        <Icon name="add" size={20} color="#FFFFFF" />
+        <Text style={styles.fabText}>Novo gasto</Text>
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>{editingExpenseId ? 'Editar gasto' : 'Novo gasto'}</Text>
-            <Text style={styles.modalLabel}>Valor (R$) *</Text>
-            <TextInput style={styles.modalInput} placeholder="0.00" placeholderTextColor={C.tertiary} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
-            <Text style={styles.modalLabel}>Categoria</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {CATEGORIES.map(cat => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[styles.catBtn, category === cat && styles.catBtnActive]}
-                    onPress={() => setCategory(cat)}
-                  >
-                    <Text style={[styles.catBtnText, category === cat && styles.catBtnTextActive]}>
-                      {CATEGORY_ICONS[cat]} {cat}
-                    </Text>
+      <Modal visible={modalVisible} animationType="slide" transparent={false}>
+        <View style={styles.fullScreenContainer}>
+          <KeyboardAvoidingView style={styles.fullScreenKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <ScrollView contentContainerStyle={styles.fullScreenScroll} keyboardShouldPersistTaps="handled">
+              <View style={styles.fullScreenBox}>
+                  <View style={styles.modalHandle} />
+                  <Text style={styles.modalTitle}>{editingExpenseId ? 'Editar gasto' : 'Novo gasto'}</Text>
+                  <Text style={styles.modalSubtitle}>Registre os detalhes do gasto</Text>
+
+                  <Text style={styles.sheetLabel}>Valor *</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="payments" size={20} color={C.secondary} />
+                    <TextInput style={styles.sheetInput} placeholder="0.00" placeholderTextColor={C.tertiary} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
+                  </View>
+
+                  <Text style={styles.sheetLabel}>Categoria</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
+                    {CATEGORIES.map(cat => (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[styles.pill, category === cat && styles.pillActive]}
+                        onPress={() => setCategory(cat)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.pillText, category === cat && styles.pillTextActive]}>{cat}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  <Text style={styles.sheetLabel}>Descricao</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="notes" size={20} color={C.secondary} />
+                    <TextInput style={styles.sheetInput} placeholder="Ex: Almoco no restaurante" placeholderTextColor={C.tertiary} value={description} onChangeText={setDescription} />
+                  </View>
+
+                  <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} disabled={saving}>
+                    <Text style={styles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar gasto'}</Text>
                   </TouchableOpacity>
-                ))}
+                  <TouchableOpacity style={styles.cancelSheetBtn} onPress={handleCloseExpenseModal}>
+                    <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+
+                  {editingExpenseId ? (
+                    <TouchableOpacity style={styles.deleteExpenseBtn} onPress={() => handleDelete(editingExpenseId)}>
+                      <Text style={styles.deleteExpenseText}>Excluir gasto</Text>
+                    </TouchableOpacity>
+                  ) : null}
               </View>
             </ScrollView>
-            <Text style={styles.modalLabel}>Descrição (opcional)</Text>
-            <TextInput style={styles.modalInput} placeholder="Ex: Almoço no restaurante" placeholderTextColor={C.tertiary} value={description} onChangeText={setDescription} />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setModalVisible(false); resetForm() }}>
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-                <Text style={styles.saveBtnText}>{saving ? 'Salvando...' : 'Salvar'}</Text>
-              </TouchableOpacity>
-            </View>
-            {editingExpenseId ? (
-              <TouchableOpacity style={styles.deleteExpenseBtn} onPress={() => handleDelete(editingExpenseId)}>
-                <Text style={styles.deleteExpenseText}>Excluir gasto</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   )
@@ -405,24 +421,56 @@ const styles = StyleSheet.create({
   expenseDesc: { fontSize: 12, color: C.secondary, marginTop: 2 },
   expenseDate: { fontSize: 11, color: C.tertiary, marginTop: 2 },
   expenseAmount: { fontSize: 15, fontWeight: '700', color: C.primary },
-  fab: { position: 'absolute', bottom: 32, left: 20, right: 20, backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  fab: { position: 'absolute', bottom: 32, left: 20, right: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16 },
   fabText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalBox: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: C.primary, marginBottom: 16 },
-  modalLabel: { fontSize: 13, color: C.secondary, marginBottom: 6, marginTop: 10 },
-  modalInput: { backgroundColor: C.surfaceHigh, borderWidth: 0.5, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.primary },
-  catBtn: { borderWidth: 0.5, borderColor: C.border, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  catBtnActive: { backgroundColor: C.accent, borderColor: C.accent },
-  catBtnText: { color: C.secondary, fontSize: 12 },
-  catBtnTextActive: { color: '#fff', fontWeight: '600' },
-  modalActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
-  cancelBtn: { flex: 1, borderWidth: 0.5, borderColor: C.border, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { color: C.secondary, fontSize: 14 },
-  saveBtn: { flex: 1, backgroundColor: C.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  saveBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
+  fullScreenContainer: { flex: 1, backgroundColor: C.background },
+  fullScreenKeyboard: { flex: 1 },
+  fullScreenScroll: { flexGrow: 1 },
+  fullScreenBox: { flex: 1, backgroundColor: C.background, padding: 24, paddingTop: 50, paddingBottom: 32 },
+  modalScrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
+  modalBox: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 48, borderTopRightRadius: 48,
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44,
+  },
+  modalHandle: {
+    width: 48, height: 6, borderRadius: 3,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    alignSelf: 'center', marginBottom: 24,
+  },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: C.primary, marginBottom: 2 },
+  modalSubtitle: { fontSize: 14, color: C.secondary, marginBottom: 4 },
+  sheetLabel: {
+    fontSize: 10, fontWeight: '700', color: C.secondary,
+    textTransform: 'uppercase', letterSpacing: 1.5,
+    marginLeft: 4, marginBottom: 8, marginTop: 16,
+  },
+  sheetInputRow: {
+    backgroundColor: C.surfaceHigh, borderRadius: 16,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 4,
+  },
+  sheetInput: { flex: 1, fontSize: 15, color: C.primary, marginLeft: 10, paddingVertical: 14, padding: 0 },
+  pillsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  pill: { alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: C.surfaceHigh },
+  pillActive: { backgroundColor: C.primary },
+  pillText: { fontSize: 12, fontWeight: '600', color: C.secondary },
+  pillTextActive: { color: '#fff' },
+  primaryBtn: {
+    backgroundColor: C.primary, borderRadius: 16, paddingVertical: 18,
+    alignItems: 'center', marginTop: 24,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
+  },
+  primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  cancelSheetBtn: {
+    borderRadius: 16, paddingVertical: 18, alignItems: 'center',
+    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.08)', marginTop: 10,
+  },
+  cancelSheetBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
   removeImageBtn: { alignSelf: 'flex-start', marginTop: 6, marginBottom: 6 },
   removeImageText: { color: C.error, fontSize: 12, fontWeight: '600' },
-  deleteExpenseBtn: { marginTop: 12, borderWidth: 0.5, borderColor: C.error, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  deleteExpenseBtn: { marginTop: 12, borderWidth: 0.5, borderColor: C.error, borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   deleteExpenseText: { color: C.error, fontSize: 14, fontWeight: '600' },
 })

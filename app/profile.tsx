@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
 import { t } from '../lib/i18n'
+import Icon from '../components/Icon'
 
 const C = Colors.dark
 
@@ -66,7 +67,7 @@ export default function ProfileScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-          <Text style={styles.backText}>{'<'} Voltar</Text>
+          <Icon name="arrow-back" size={22} color={C.accent} />
         </TouchableOpacity>
 
         <Text style={styles.title}>Meu perfil</Text>
