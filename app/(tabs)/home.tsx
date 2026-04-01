@@ -2,6 +2,7 @@ import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, Image, Animated
 } from 'react-native'
+import Icon from '../../components/Icon'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
@@ -275,7 +276,7 @@ export default function HomeScreen() {
             <Image source={{ uri: item.cover_image }} style={styles.cardImg} resizeMode="cover" />
           ) : (
             <View style={styles.cardImgPlaceholder}>
-              <Text style={styles.cardImgIcon}>VOO</Text>
+              <Icon name="flight" size={40} color={C.tertiary} />
             </View>
           )}
           <View style={styles.cardOverlay}>
@@ -289,9 +290,11 @@ export default function HomeScreen() {
             <Text style={styles.cardTitle}>{item.title}</Text>
             <Text style={styles.cardDest}>{item.destination}</Text>
             {(item.start_date || item.end_date) && (
-              <Text style={styles.cardDate}>
-                {formatDate(item.start_date)} {'->'} {formatDate(item.end_date)}
-              </Text>
+              <View style={styles.cardDateRow}>
+                <Text style={styles.cardDate}>{formatDate(item.start_date)}</Text>
+                <Icon name="arrow-forward" size={12} color={C.tertiary} />
+                <Text style={styles.cardDate}>{formatDate(item.end_date)}</Text>
+              </View>
             )}
           </View>
         </TouchableOpacity>
@@ -351,7 +354,7 @@ export default function HomeScreen() {
             <SkeletonList />
           ) : (
             <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>✈</Text>
+            <Icon name="flight" size={48} color={C.tertiary} />
             <Text style={styles.emptyTitle}>
               {activeTab === 'open' ? 'Nenhuma viagem em aberto' : 'Nenhuma viagem concluida'}
             </Text>
@@ -367,7 +370,7 @@ export default function HomeScreen() {
         onPress={() => router.push('/new-trip')}
         activeOpacity={0.85}
       >
-        <Text style={styles.fabText}>+</Text>
+        <Icon name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
     </SafeAreaView>
   )
@@ -390,7 +393,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: C.surface, borderRadius: 16, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, overflow: 'hidden' },
   cardImg: { width: '100%', height: 180 },
   cardImgPlaceholder: { width: '100%', height: 140, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' },
-  cardImgIcon: { fontSize: 40, color: C.tertiary },
+  cardImgIcon: { color: C.tertiary },
   cardOverlay: { position: 'absolute', top: 12, right: 12 },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 10, fontWeight: '600' },
@@ -398,6 +401,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '700', color: C.primary, marginBottom: 4 },
   cardDest: { fontSize: 13, color: C.secondary, marginBottom: 4 },
   cardDate: { fontSize: 12, color: C.tertiary },
+  cardDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   skeletonImage: { width: '100%', height: 140, backgroundColor: C.surfaceHigh },
   skeletonLine: { height: 10, borderRadius: 6, backgroundColor: C.surfaceHigh, marginBottom: 8 },
   skeletonTitle: { width: '60%', height: 12 },
@@ -407,7 +411,7 @@ const styles = StyleSheet.create({
   betweenTrips: { alignItems: 'center', marginBottom: 12 },
   betweenTripsText: { fontSize: 11, color: C.tertiary, fontWeight: '600' },
   empty: { alignItems: 'center', paddingTop: 80 },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  emptyIcon: { marginBottom: 16 },
   emptyTitle: { fontSize: 16, fontWeight: '600', color: C.primary, marginBottom: 8 },
   emptyDesc: { fontSize: 13, color: C.secondary, textAlign: 'center' },
   fab: {
@@ -421,5 +425,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fabText: { fontSize: 30, fontWeight: '700', color: '#FFFFFF', lineHeight: 32 },
+  fabText: { color: '#FFFFFF' },
 })

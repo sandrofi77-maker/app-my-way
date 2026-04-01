@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-na
 import * as ExpoImagePicker from 'expo-image-picker'
 import { Colors } from '../constants/Colors'
 import { t } from '../lib/i18n'
+import Icon from './Icon'
 
 const C = Colors.dark
 
@@ -42,7 +43,7 @@ export default function ImagePickerComponent({ imageUri, onImageSelected, aspect
         </View>
       ) : (
         <View style={styles.placeholder}>
-          <Text style={styles.placeholderIcon}>✈</Text>
+          <Icon name="flight" size={36} color={C.tertiary} />
           <Text style={styles.placeholderText}>Adicionar foto de capa</Text>
           <Text style={styles.placeholderSub}>Toque para escolher da galeria</Text>
         </View>
@@ -67,7 +68,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed', borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', gap: 6
   },
-  placeholderIcon: { fontSize: 36, color: C.tertiary },
-  placeholderText: { fontSize: 14, fontWeight: '500', color: C.secondary },
+placeholderText: { fontSize: 14, fontWeight: '500', color: C.secondary },
   placeholderSub: { fontSize: 12, color: C.tertiary },
 })

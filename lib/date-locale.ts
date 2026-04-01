@@ -1,14 +1,5 @@
-import { getDeviceLocale } from './i18n'
-
-const DATE_PART_ORDER = Intl.DateTimeFormat(getDeviceLocale())
-  .formatToParts(new Date(2001, 10, 22))
-  .filter((part) => part.type === 'day' || part.type === 'month' || part.type === 'year')
-  .map((part) => part.type as 'day' | 'month' | 'year')
-
-const DATE_SEPARATOR = (() => {
-  const parts = Intl.DateTimeFormat(getDeviceLocale()).formatToParts(new Date(2001, 10, 22))
-  return parts.find((part) => part.type === 'literal')?.value || '/'
-})()
+const DATE_PART_ORDER: Array<'day' | 'month' | 'year'> = ['day', 'month', 'year']
+const DATE_SEPARATOR = '/'
 
 function pad2(value: number) {
   return String(value).padStart(2, '0')
@@ -64,24 +55,15 @@ function isValidDate(year: number, month: number, day: number) {
 }
 
 export function getLocalDatePlaceholder() {
-  return new Date(2026, 7, 10).toLocaleDateString(getDeviceLocale())
+  return `${pad2(10)}${DATE_SEPARATOR}${pad2(8)}${DATE_SEPARATOR}2026`
 }
 
 export function getLocalDateTimePlaceholder() {
-  return new Date(2026, 7, 10, 14, 30).toLocaleString(getDeviceLocale(), {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return `${pad2(10)}${DATE_SEPARATOR}${pad2(8)}${DATE_SEPARATOR}2026 14:30`
 }
 
 export function getLocalTimePlaceholder() {
-  return new Date(2026, 7, 10, 14, 30).toLocaleTimeString(getDeviceLocale(), {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return '14:30'
 }
 
 export function sanitizeDateInput(value: string) {
@@ -191,4 +173,35 @@ export function toTimeOrNull(input: string) {
   if (hour > 23 || minute > 59) return null
 
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+export function formatDateForInput(value?: string | null) {
+  if (!value) return ''
+
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (isoMatch) {
+    const year = Number(isoMatch[1])
+    const month = Number(isoMatch[2])
+    const day = Number(isoMatch[3])
+    if (!isValidDate(year, month, day)) return ''
+    return `${pad2(day)}${DATE_SEPARATOR}${pad2(month)}${DATE_SEPARATOR}${year}`
+  }
+
+  const pieces = parseDatePieces(value)
+  if (pieces && isValidDate(pieces.year, pieces.month, pieces.day)) {
+    return `${pad2(pieces.day)}${DATE_SEPARATOR}${pad2(pieces.month)}${DATE_SEPARATOR}${pieces.year}`
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return `${pad2(parsed.getDate())}${DATE_SEPARATOR}${pad2(parsed.getMonth() + 1)}${DATE_SEPARATOR}${parsed.getFullYear()}`
+}
+
+export function formatDateTimeForInput(value?: string | null) {
+  if (!value) return ''
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  const datePart = `${pad2(parsed.getDate())}${DATE_SEPARATOR}${pad2(parsed.getMonth() + 1)}${DATE_SEPARATOR}${parsed.getFullYear()}`
+  const timePart = `${pad2(parsed.getHours())}:${pad2(parsed.getMinutes())}`
+  return `${datePart} ${timePart}`
 }

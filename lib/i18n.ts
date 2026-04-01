@@ -38,6 +38,13 @@ type LocaleStrings = {
   delete_accommodation_failed: string
   delete_trip_failed: string
   required_auth_fields: string
+  confirm_delete_itinerary_title: string
+  confirm_delete_itinerary_body: string
+  required_itinerary_fields: string
+  save_itinerary_failed: string
+  delete_itinerary_failed: string
+  invalid_itinerary_date: string
+  invalid_itinerary_time: string
 }
 
 const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
@@ -81,6 +88,13 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     delete_accommodation_failed: 'Não foi possível excluir a hospedagem.',
     delete_trip_failed: 'Não foi possível excluir.',
     required_auth_fields: 'Preencha email e senha.',
+    confirm_delete_itinerary_title: 'Excluir item',
+    confirm_delete_itinerary_body: 'Tem certeza que deseja excluir este item do roteiro?',
+    required_itinerary_fields: 'Preencha o titulo do item.',
+    save_itinerary_failed: 'Não foi possível salvar o item do roteiro.',
+    delete_itinerary_failed: 'Não foi possível excluir o item do roteiro.',
+    invalid_itinerary_date: 'Data do item inválida. Use o formato local do dispositivo.',
+    invalid_itinerary_time: 'Horário do item inválido. Use HH:mm.',
   },
   en: {
     permission_needed_title: 'Permission required',
@@ -122,6 +136,13 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     delete_accommodation_failed: 'Unable to delete the accommodation.',
     delete_trip_failed: 'Unable to delete.',
     required_auth_fields: 'Please enter email and password.',
+    confirm_delete_itinerary_title: 'Delete item',
+    confirm_delete_itinerary_body: 'Are you sure you want to delete this itinerary item?',
+    required_itinerary_fields: 'Please fill in the item title.',
+    save_itinerary_failed: 'Unable to save the itinerary item.',
+    delete_itinerary_failed: 'Unable to delete the itinerary item.',
+    invalid_itinerary_date: 'Invalid item date. Use your device local format.',
+    invalid_itinerary_time: 'Invalid item time. Use HH:mm.',
   },
 }
 

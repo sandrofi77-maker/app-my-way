@@ -8,8 +8,9 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
-import { applyDateMask, getLocalDatePlaceholder, toISODateOrNull } from '../lib/date-locale'
+import { applyDateMask, formatDateForInput, getLocalDatePlaceholder, toISODateOrNull } from '../lib/date-locale'
 import { t } from '../lib/i18n'
+import Icon from '../components/Icon'
 
 const C = Colors.dark
 
@@ -25,8 +26,8 @@ export default function EditTripScreen() {
 
   const [title, setTitle] = useState((initialTitle as string) || '')
   const [destination, setDestination] = useState((initialDest as string) || '')
-  const [startDate, setStartDate] = useState((initialStart as string) || '')
-  const [endDate, setEndDate] = useState((initialEnd as string) || '')
+  const [startDate, setStartDate] = useState(formatDateForInput(initialStart as string))
+  const [endDate, setEndDate] = useState(formatDateForInput(initialEnd as string))
   const [imageUri, setImageUri] = useState<string | null>(initialImage ? (initialImage as string) : null)
   const [loading, setLoading] = useState(false)
   const datePlaceholder = getLocalDatePlaceholder()
@@ -76,7 +77,7 @@ export default function EditTripScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>{'<'} Voltar</Text>
+          <Icon name="arrow-back" size={22} color={C.accent} />
         </TouchableOpacity>
 
         <Text style={styles.pageTitle}>Editar viagem</Text>
