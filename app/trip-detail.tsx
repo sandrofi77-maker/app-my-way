@@ -671,7 +671,6 @@ export default function TripDetailScreen() {
                       <Text style={styles.flightCardNotes} numberOfLines={2}>{flight.notes}</Text>
                     ) : null}
 
-                    <Text style={styles.editFlightHint}>Toque para editar</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -787,7 +786,6 @@ export default function TripDetailScreen() {
                         </View>
                       ) : null}
 
-                      <Text style={[styles.editFlightHint, { marginHorizontal: 16, marginBottom: 16 }]}>Toque para editar</Text>
                     </TouchableOpacity>
                   )
                 })}
@@ -801,14 +799,18 @@ export default function TripDetailScreen() {
                 </View>
               )}
 
-              <TouchableOpacity style={[styles.addBtn, { alignSelf: 'center', marginTop: 8 }]} onPress={openNewAccommodationModal}>
-                <Icon name="add" size={16} color={C.accent} />
-                <Text style={styles.addBtnText}>Adicionar hospedagem</Text>
-              </TouchableOpacity>
             </View>
           )}
 
-          <Text style={styles.sectionTitle}>Roteiro</Text>
+          <View style={styles.flightSectionHeader}>
+            <Text style={styles.sectionTitle}>Roteiro</Text>
+            <TouchableOpacity
+              style={styles.flightAddIconBtn}
+              onPress={() => trip && router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}
+            >
+              <Icon name="add" size={20} color={C.accent} />
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             style={styles.sectionCard}
             activeOpacity={0.85}
@@ -830,63 +832,38 @@ export default function TripDetailScreen() {
                     {itineraryItems.length > 2 ? ` · +${itineraryItems.length - 2}` : ''}
                   </Text>
                 )}
-                <Text style={styles.itineraryPreviewAction}>Ver e gerenciar roteiro →</Text>
               </View>
             </View>
           </TouchableOpacity>
 
-          <Text style={styles.sectionTitle}>Gastos</Text>
-          <View style={styles.sectionCard}>
+          <View style={styles.flightSectionHeader}>
+            <Text style={styles.sectionTitle}>Gastos</Text>
+            <TouchableOpacity
+              style={styles.flightAddIconBtn}
+              onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title, openNew: '1' } })}
+            >
+              <Icon name="add" size={20} color={C.accent} />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.sectionCard}
+            onPress={() => trip && router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
+            activeOpacity={0.85}
+          >
             {expenses.length === 0 ? (
               <Text style={styles.emptySectionText}>Nenhum gasto registrado</Text>
             ) : (() => {
               const total = expenses.reduce((sum, e) => sum + e.amount, 0)
               const currency = expenses[expenses.length - 1]?.currency || 'BRL'
-
-              const byDay: Record<string, number> = {}
-              for (const e of expenses) {
-                byDay[e.date] = (byDay[e.date] || 0) + e.amount
-              }
-
-              // Gera os últimos 15 dias a partir de hoje, preenchendo com 0 quando sem gasto
-              const last15: { date: string; val: number }[] = []
-              for (let i = 14; i >= 0; i--) {
-                const d = new Date()
-                d.setDate(d.getDate() - i)
-                const key = d.toISOString().split('T')[0]
-                last15.push({ date: key, val: byDay[key] || 0 })
-              }
-              const maxDay = Math.max(...last15.map((x) => x.val), 1)
-
               const recent = [...expenses].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3)
-
               return (
                 <>
-                  <Text style={styles.expensesTotal}>
-                    {currency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Text>
-                  <Text style={styles.expensesTotalLabel}>total gasto</Text>
-
-                  <View style={styles.barChart}>
-                    {last15.map(({ date, val }) => {
-                      const [, m, d] = date.split('-')
-                      const label = `${d}/${m}`
-                      const pct = val / maxDay
-                      return (
-                        <View key={date} style={styles.barCol}>
-                          <View style={styles.barTrack}>
-                            {val > 0 ? (
-                              <View style={[styles.bar, { height: Math.max(6, pct * 80) }]} />
-                            ) : (
-                              <View style={styles.barEmpty} />
-                            )}
-                          </View>
-                          <Text style={styles.barLabel}>{label}</Text>
-                        </View>
-                      )
-                    })}
+                  <View style={styles.expensesTotalCard}>
+                    <Text style={styles.expensesTotalCardLabel}>Total gasto</Text>
+                    <Text style={styles.expensesTotalCardValue}>
+                      {currency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Text>
                   </View>
-
                   <View style={styles.recentExpenses}>
                     {recent.map((e) => (
                       <View key={e.id} style={styles.recentExpenseItem}>
@@ -905,13 +882,7 @@ export default function TripDetailScreen() {
               )
             })()}
 
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
-            >
-              <Icon name="add" size={16} color={C.accent} /><Text style={styles.addBtnText}>Registrar gasto</Text>
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -925,6 +896,11 @@ export default function TripDetailScreen() {
                 <Text style={styles.modalTitle}>{editingFlightId ? 'Editar voo' : 'Novo voo'}</Text>
                 <Text style={styles.modalSubtitle}>Preencha os dados do voo</Text>
               </View>
+              {editingFlightId ? (
+                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteFlight} disabled={deletingFlight || savingFlight}>
+                  <Icon name="delete-outline" size={20} color={C.error} />
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseFlightModal}>
                 <Icon name="close" size={20} color={C.secondary} />
               </TouchableOpacity>
@@ -980,15 +956,7 @@ export default function TripDetailScreen() {
               <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveFlight} disabled={savingFlight || deletingFlight}>
                 {savingFlight ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingFlightId ? 'Salvar edicao' : 'Salvar voo'}</Text>}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelSheetBtn} onPress={handleCloseFlightModal}>
-                <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
-              </TouchableOpacity>
 
-              {editingFlightId ? (
-                <TouchableOpacity style={styles.deleteFlightBtn} onPress={handleDeleteFlight} disabled={deletingFlight || savingFlight}>
-                  <Text style={styles.deleteFlightBtnText}>{deletingFlight ? 'Excluindo...' : 'Excluir voo'}</Text>
-                </TouchableOpacity>
-              ) : null}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -1018,6 +986,11 @@ export default function TripDetailScreen() {
                 <Text style={styles.modalTitle}>{editingAccommodationId ? 'Editar hospedagem' : 'Nova hospedagem'}</Text>
                 <Text style={styles.modalSubtitle}>Preencha os dados da hospedagem</Text>
               </View>
+              {editingAccommodationId ? (
+                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteAccommodation} disabled={deletingAccommodation || savingAccommodation}>
+                  <Icon name="delete-outline" size={20} color={C.error} />
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseAccommodationModal}>
                 <Icon name="close" size={20} color={C.secondary} />
               </TouchableOpacity>
@@ -1087,15 +1060,7 @@ export default function TripDetailScreen() {
               <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveAccommodation} disabled={savingAccommodation || deletingAccommodation}>
                 {savingAccommodation ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingAccommodationId ? 'Salvar edicao' : 'Salvar hospedagem'}</Text>}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelSheetBtn} onPress={handleCloseAccommodationModal}>
-                <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
-              </TouchableOpacity>
 
-              {editingAccommodationId ? (
-                <TouchableOpacity style={styles.deleteFlightBtn} onPress={handleDeleteAccommodation} disabled={deletingAccommodation || savingAccommodation}>
-                  <Text style={styles.deleteFlightBtnText}>{deletingAccommodation ? 'Excluindo...' : 'Excluir hospedagem'}</Text>
-                </TouchableOpacity>
-              ) : null}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -1245,6 +1210,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
   },
+  sheetDeleteBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFF0EF', marginRight: 16,
+  },
   sheetCloseBtn: {
     width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',
@@ -1299,6 +1269,11 @@ const styles = StyleSheet.create({
   deleteFlightBtnText: { color: C.error, fontSize: 14, fontWeight: '600' },
   expensesTotal: { fontSize: 28, fontWeight: '700', color: C.primary, textAlign: 'center', marginTop: 4 },
   expensesTotalLabel: { fontSize: 12, color: C.tertiary, textAlign: 'center', marginBottom: 16 },
+  expensesTotalCard: {
+    backgroundColor: C.primary, borderRadius: 12, padding: 16, marginBottom: 14,
+  },
+  expensesTotalCardLabel: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 4 },
+  expensesTotalCardValue: { fontSize: 28, fontWeight: '700', color: '#fff' },
   barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 4 },
   barCol: { flex: 1, alignItems: 'center', gap: 4 },
   barTrack: { width: '100%', height: 64, justifyContent: 'flex-end' },

@@ -43,7 +43,7 @@ export default function ImagePickerComponent({ imageUri, onImageSelected, aspect
         </View>
       ) : (
         <View style={styles.placeholder}>
-          <Icon name="flight" size={36} color={C.tertiary} />
+          <Icon name="add-photo-alternate" size={36} color={C.tertiary} />
           <Text style={styles.placeholderText}>Adicionar foto de capa</Text>
           <Text style={styles.placeholderSub}>Toque para escolher da galeria</Text>
         </View>

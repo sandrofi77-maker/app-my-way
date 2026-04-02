@@ -147,7 +147,7 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
 }
 
 export function getDeviceLocale() {
-  return Intl.DateTimeFormat().resolvedOptions().locale || 'en-US'
+  return 'pt-BR'
 }
 
 function getLanguage() {

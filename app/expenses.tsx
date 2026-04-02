@@ -47,7 +47,7 @@ function formatExpenseDate(date: string) {
 }
 
 export default function ExpensesScreen() {
-  const { id: tripId, title: tripTitle } = useLocalSearchParams()
+  const { id: tripId, title: tripTitle, openNew } = useLocalSearchParams()
   const listRef = useRef<FlatList<Expense>>(null)
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [modalVisible, setModalVisible] = useState(false)
@@ -61,7 +61,10 @@ export default function ExpensesScreen() {
   const [saving, setSaving] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('Todos')
 
-  useFocusEffect(useCallback(() => { loadExpenses() }, []))
+  useFocusEffect(useCallback(() => {
+    loadExpenses()
+    if (openNew === '1') openNewExpense()
+  }, [openNew]))
 
   async function loadExpenses() {
     const { data, error } = await supabase
@@ -213,10 +216,6 @@ export default function ExpensesScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Total gasto</Text>
-          <Text style={styles.totalValue}>R$ {total.toFixed(2)}</Text>
-        </View>
 
         <View style={styles.chartBlock}>
           <Text style={styles.chartLabel}>Ultimos 7 dias</Text>
@@ -316,6 +315,11 @@ export default function ExpensesScreen() {
                 <Text style={styles.modalTitle}>{editingExpenseId ? 'Editar gasto' : 'Novo gasto'}</Text>
                 <Text style={styles.modalSubtitle}>Registre os detalhes do gasto</Text>
               </View>
+              {editingExpenseId ? (
+                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={() => handleDelete(editingExpenseId)} >
+                  <Icon name="delete-outline" size={20} color={C.error} />
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseExpenseModal}>
                 <Icon name="close" size={20} color={C.secondary} />
               </TouchableOpacity>
@@ -350,15 +354,7 @@ export default function ExpensesScreen() {
               <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} disabled={saving}>
                 <Text style={styles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar gasto'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelSheetBtn} onPress={handleCloseExpenseModal}>
-                <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
-              </TouchableOpacity>
 
-              {editingExpenseId ? (
-                <TouchableOpacity style={styles.deleteExpenseBtn} onPress={() => handleDelete(editingExpenseId)}>
-                  <Text style={styles.deleteExpenseText}>Excluir gasto</Text>
-                </TouchableOpacity>
-              ) : null}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -438,6 +434,11 @@ const styles = StyleSheet.create({
   sheetHeaderRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
+  },
+  sheetDeleteBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFF0EF', marginRight: 16,
   },
   sheetCloseBtn: {
     width: 34, height: 34, borderRadius: 17,
