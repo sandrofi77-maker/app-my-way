@@ -1,5 +1,5 @@
 import {
-  View, Text, TouchableOpacity,
+  View, Text, TouchableOpacity, Pressable,
   StyleSheet, Alert, Modal, TextInput,
   KeyboardAvoidingView, Platform, ScrollView,
   ActivityIndicator
@@ -333,122 +333,120 @@ export default function ItineraryScreen() {
       </TouchableOpacity>
 
       {/* Add / Edit Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent={false}>
-        <View style={styles.fullScreenContainer}>
-          <KeyboardAvoidingView
-            style={styles.fullScreenKeyboard}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
-            <ScrollView
-              contentContainerStyle={styles.fullScreenScroll}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.fullScreenBox}>
-                  <View style={styles.modalHandle} />
-
-                  <Text style={styles.modalTitle}>{editingId ? 'Editar evento' : 'Novo evento'}</Text>
-                  <Text style={styles.modalSubtitle}>Preencha os detalhes do evento</Text>
-
-                  <Text style={styles.sheetLabel}>Titulo *</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="edit-note" size={20} color={C.secondary} />
-                    <TextInput
-                      style={styles.sheetInput}
-                      placeholder="Ex: Visita ao museu"
-                      placeholderTextColor={C.tertiary}
-                      value={itemTitle}
-                      onChangeText={setItemTitle}
-                    />
-                  </View>
-
-                  <View style={styles.modalRow}>
-                    <View style={styles.modalCol}>
-                      <Text style={styles.sheetLabel}>Data</Text>
-                      <View style={styles.sheetInputRow}>
-                        <Icon name="calendar-today" size={18} color={C.secondary} />
-                        <TextInput
-                          style={styles.sheetInput}
-                          placeholder={datePlaceholder}
-                          placeholderTextColor={C.tertiary}
-                          value={itemDate}
-                          onChangeText={(v) => setItemDate(applyDateMask(v))}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                    </View>
-                    <View style={styles.modalCol}>
-                      <Text style={styles.sheetLabel}>Horario</Text>
-                      <View style={styles.sheetInputRow}>
-                        <Icon name="schedule" size={18} color={C.secondary} />
-                        <TextInput
-                          style={styles.sheetInput}
-                          placeholder={timePlaceholder}
-                          placeholderTextColor={C.tertiary}
-                          value={itemTime}
-                          onChangeText={(v) => setItemTime(applyTimeMask(v))}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                    </View>
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Local</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="location-on" size={20} color={C.secondary} />
-                    <TextInput
-                      style={styles.sheetInput}
-                      placeholder="Ex: Museu do Louvre, Paris"
-                      placeholderTextColor={C.tertiary}
-                      value={itemLocation}
-                      onChangeText={setItemLocation}
-                    />
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Observacoes</Text>
-                  <View style={[styles.sheetInputRow, styles.sheetInputRowMultiline]}>
-                    <Icon name="notes" size={20} color={C.secondary} />
-                    <TextInput
-                      style={[styles.sheetInput, styles.sheetInputMultiline]}
-                      placeholder="Detalhes, ingressos, dicas..."
-                      placeholderTextColor={C.tertiary}
-                      value={itemDescription}
-                      onChangeText={setItemDescription}
-                      multiline
-                    />
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.primaryBtn}
-                    onPress={handleSave}
-                    disabled={saving || deleting}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.primaryBtnText}>{editingId ? 'Salvar edicao' : 'Salvar evento'}</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.cancelSheetBtn}
-                    onPress={handleCloseEventModal}
-                  >
-                    <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
-                  </TouchableOpacity>
-
-                  {editingId ? (
-                    <TouchableOpacity
-                      style={styles.deleteBtn}
-                      onPress={handleDelete}
-                      disabled={deleting || saving}
-                    >
-                      <Text style={styles.deleteBtnText}>{deleting ? 'Excluindo...' : 'Excluir item'}</Text>
-                    </TouchableOpacity>
-                  ) : null}
+      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseEventModal} />
+          <View style={styles.sheetContainer}>
+            <View style={styles.modalHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>{editingId ? 'Editar evento' : 'Novo evento'}</Text>
+                <Text style={styles.modalSubtitle}>Preencha os detalhes do evento</Text>
               </View>
+              <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseEventModal}>
+                <Icon name="close" size={20} color={C.secondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={styles.sheetLabel}>Titulo *</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="edit-note" size={20} color={C.secondary} />
+                <TextInput
+                  style={styles.sheetInput}
+                  placeholder="Ex: Visita ao museu"
+                  placeholderTextColor={C.tertiary}
+                  value={itemTitle}
+                  onChangeText={setItemTitle}
+                />
+              </View>
+
+              <View style={styles.modalRow}>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Data</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="calendar-today" size={18} color={C.secondary} />
+                    <TextInput
+                      style={styles.sheetInput}
+                      placeholder={datePlaceholder}
+                      placeholderTextColor={C.tertiary}
+                      value={itemDate}
+                      onChangeText={(v) => setItemDate(applyDateMask(v))}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Horario</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="schedule" size={18} color={C.secondary} />
+                    <TextInput
+                      style={styles.sheetInput}
+                      placeholder={timePlaceholder}
+                      placeholderTextColor={C.tertiary}
+                      value={itemTime}
+                      onChangeText={(v) => setItemTime(applyTimeMask(v))}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.sheetLabel}>Local</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="location-on" size={20} color={C.secondary} />
+                <TextInput
+                  style={styles.sheetInput}
+                  placeholder="Ex: Museu do Louvre, Paris"
+                  placeholderTextColor={C.tertiary}
+                  value={itemLocation}
+                  onChangeText={setItemLocation}
+                />
+              </View>
+
+              <Text style={styles.sheetLabel}>Observacoes</Text>
+              <View style={[styles.sheetInputRow, styles.sheetInputRowMultiline]}>
+                <Icon name="notes" size={20} color={C.secondary} />
+                <TextInput
+                  style={[styles.sheetInput, styles.sheetInputMultiline]}
+                  placeholder="Detalhes, ingressos, dicas..."
+                  placeholderTextColor={C.tertiary}
+                  value={itemDescription}
+                  onChangeText={setItemDescription}
+                  multiline
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={handleSave}
+                disabled={saving || deleting}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>{editingId ? 'Salvar edicao' : 'Salvar evento'}</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelSheetBtn}
+                onPress={handleCloseEventModal}
+              >
+                <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              {editingId ? (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={handleDelete}
+                  disabled={deleting || saving}
+                >
+                  <Text style={styles.deleteBtnText}>{deleting ? 'Excluindo...' : 'Excluir item'}</Text>
+                </TouchableOpacity>
+              ) : null}
             </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   )
@@ -569,17 +567,23 @@ const styles = StyleSheet.create({
   },
 
   // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
-  fullScreenContainer: { flex: 1, backgroundColor: C.background },
-  fullScreenKeyboard: { flex: 1 },
-  fullScreenScroll: { flexGrow: 1 },
-  fullScreenBox: { flex: 1, backgroundColor: C.background, padding: 24, paddingTop: 50, paddingBottom: 32 },
-  modalScrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
-  modalBox: {
+  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheetKeyboard: {},
+  sheetContainer: {
     backgroundColor: C.surface,
-    borderTopLeftRadius: 48, borderTopRightRadius: 48,
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    maxHeight: '90%',
   },
+  sheetHeaderRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
+  },
+  sheetCloseBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceHigh,
+  },
+  sheetScroll: { paddingHorizontal: 24, paddingBottom: 34 },
   modalHandle: {
     width: 48, height: 6, borderRadius: 3,
     backgroundColor: 'rgba(0,0,0,0.1)',
