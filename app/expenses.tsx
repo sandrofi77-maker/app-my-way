@@ -1,5 +1,5 @@
 import {
-  View, Text, FlatList, TouchableOpacity,
+  View, Text, FlatList, TouchableOpacity, Pressable,
   StyleSheet, Alert, TextInput, Modal,
   KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native'
@@ -47,7 +47,7 @@ function formatExpenseDate(date: string) {
 }
 
 export default function ExpensesScreen() {
-  const { id: tripId, title: tripTitle } = useLocalSearchParams()
+  const { id: tripId, title: tripTitle, openNew } = useLocalSearchParams()
   const listRef = useRef<FlatList<Expense>>(null)
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [modalVisible, setModalVisible] = useState(false)
@@ -61,7 +61,10 @@ export default function ExpensesScreen() {
   const [saving, setSaving] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('Todos')
 
-  useFocusEffect(useCallback(() => { loadExpenses() }, []))
+  useFocusEffect(useCallback(() => {
+    loadExpenses()
+    if (openNew === '1') openNewExpense()
+  }, [openNew]))
 
   async function loadExpenses() {
     const { data, error } = await supabase
@@ -213,10 +216,6 @@ export default function ExpensesScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Total gasto</Text>
-          <Text style={styles.totalValue}>R$ {total.toFixed(2)}</Text>
-        </View>
 
         <View style={styles.chartBlock}>
           <Text style={styles.chartLabel}>Ultimos 7 dias</Text>
@@ -306,57 +305,59 @@ export default function ExpensesScreen() {
         <Text style={styles.fabText}>Novo gasto</Text>
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} animationType="slide" transparent={false}>
-        <View style={styles.fullScreenContainer}>
-          <KeyboardAvoidingView style={styles.fullScreenKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <ScrollView contentContainerStyle={styles.fullScreenScroll} keyboardShouldPersistTaps="handled">
-              <View style={styles.fullScreenBox}>
-                  <View style={styles.modalHandle} />
-                  <Text style={styles.modalTitle}>{editingExpenseId ? 'Editar gasto' : 'Novo gasto'}</Text>
-                  <Text style={styles.modalSubtitle}>Registre os detalhes do gasto</Text>
-
-                  <Text style={styles.sheetLabel}>Valor *</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="payments" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder="0.00" placeholderTextColor={C.tertiary} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Categoria</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
-                    {CATEGORIES.map(cat => (
-                      <TouchableOpacity
-                        key={cat}
-                        style={[styles.pill, category === cat && styles.pillActive]}
-                        onPress={() => setCategory(cat)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.pillText, category === cat && styles.pillTextActive]}>{cat}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-
-                  <Text style={styles.sheetLabel}>Descricao</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="notes" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder="Ex: Almoco no restaurante" placeholderTextColor={C.tertiary} value={description} onChangeText={setDescription} />
-                  </View>
-
-                  <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} disabled={saving}>
-                    <Text style={styles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar gasto'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelSheetBtn} onPress={handleCloseExpenseModal}>
-                    <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
-                  </TouchableOpacity>
-
-                  {editingExpenseId ? (
-                    <TouchableOpacity style={styles.deleteExpenseBtn} onPress={() => handleDelete(editingExpenseId)}>
-                      <Text style={styles.deleteExpenseText}>Excluir gasto</Text>
-                    </TouchableOpacity>
-                  ) : null}
+      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseExpenseModal} />
+          <View style={styles.sheetContainer}>
+            <View style={styles.modalHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>{editingExpenseId ? 'Editar gasto' : 'Novo gasto'}</Text>
+                <Text style={styles.modalSubtitle}>Registre os detalhes do gasto</Text>
               </View>
+              {editingExpenseId ? (
+                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={() => handleDelete(editingExpenseId)} >
+                  <Icon name="delete-outline" size={20} color={C.error} />
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseExpenseModal}>
+                <Icon name="close" size={20} color={C.secondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={styles.sheetLabel}>Valor *</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="payments" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder="0.00" placeholderTextColor={C.tertiary} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
+              </View>
+
+              <Text style={styles.sheetLabel}>Categoria</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
+                {CATEGORIES.map(cat => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.pill, category === cat && styles.pillActive]}
+                    onPress={() => setCategory(cat)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.pillText, category === cat && styles.pillTextActive]}>{cat}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.sheetLabel}>Descricao</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="notes" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder="Ex: Almoco no restaurante" placeholderTextColor={C.tertiary} value={description} onChangeText={setDescription} />
+              </View>
+
+              <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} disabled={saving}>
+                <Text style={styles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar gasto'}</Text>
+              </TouchableOpacity>
+
             </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   )
@@ -423,17 +424,28 @@ const styles = StyleSheet.create({
   expenseAmount: { fontSize: 15, fontWeight: '700', color: C.primary },
   fab: { position: 'absolute', bottom: 32, left: 20, right: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16 },
   fabText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
-  fullScreenContainer: { flex: 1, backgroundColor: C.background },
-  fullScreenKeyboard: { flex: 1 },
-  fullScreenScroll: { flexGrow: 1 },
-  fullScreenBox: { flex: 1, backgroundColor: C.background, padding: 24, paddingTop: 50, paddingBottom: 32 },
-  modalScrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
-  modalBox: {
+  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheetKeyboard: {},
+  sheetContainer: {
     backgroundColor: C.surface,
-    borderTopLeftRadius: 48, borderTopRightRadius: 48,
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    maxHeight: '90%',
   },
+  sheetHeaderRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
+  },
+  sheetDeleteBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFF0EF', marginRight: 16,
+  },
+  sheetCloseBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceHigh,
+  },
+  sheetScroll: { paddingHorizontal: 24, paddingBottom: 34 },
   modalHandle: {
     width: 48, height: 6, borderRadius: 3,
     backgroundColor: 'rgba(0,0,0,0.1)',

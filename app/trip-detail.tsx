@@ -2,7 +2,7 @@
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Image, Alert, Modal,
   TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Pressable
+  ActivityIndicator, Pressable, Dimensions
 } from 'react-native'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -14,6 +14,7 @@ import ImagePickerComponent from '../components/ImagePicker'
 import Icon from '../components/Icon'
 
 const C = Colors.dark
+const CARD_WIDTH = Dimensions.get('window').width - 40
 
 type Trip = {
   id: string
@@ -91,6 +92,62 @@ function formatDate(date: string) {
   })
 }
 
+function formatTime(value?: string | null) {
+  if (!value) return '--'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '--'
+  return d.toLocaleTimeString(getDeviceLocale(), { hour: '2-digit', minute: '2-digit' })
+}
+
+function getDaysUntil(dateStr?: string | null): string | null {
+  if (!dateStr) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr)
+  if (!match) return null
+  const target = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const diff = Math.round((target.getTime() - today.getTime()) / 86400000)
+  if (diff < 0) return null
+  if (diff === 0) return 'Hoje'
+  if (diff === 1) return 'Amanhã'
+  if (diff < 30) return `Em ${diff} dias`
+  const months = Math.round(diff / 30)
+  return `Em ${months} ${months === 1 ? 'mês' : 'meses'}`
+}
+
+function formatDateRange(checkIn?: string | null, checkOut?: string | null): string {
+  const fmt = (d: string) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d)
+    if (!m) return d
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+    return dt.toLocaleDateString(getDeviceLocale(), { day: '2-digit', month: 'short' })
+  }
+  if (checkIn && checkOut) return `${fmt(checkIn)} – ${fmt(checkOut)}`
+  if (checkIn) return fmt(checkIn)
+  if (checkOut) return fmt(checkOut)
+  return ''
+}
+
+function formatWeekdayDay(dateStr?: string | null): { weekday: string; day: string } | null {
+  if (!dateStr) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr)
+  if (!match) return null
+  const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return {
+    weekday: d.toLocaleDateString(getDeviceLocale(), { weekday: 'short' }).replace('.', ''),
+    day: String(d.getDate()),
+  }
+}
+
+function formatDateShort(value?: string | null) {
+  if (!value) return '--'
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  const d = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(value)
+  if (Number.isNaN(d.getTime())) return '--'
+  return d.toLocaleDateString(getDeviceLocale(), { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return '--'
   const d = new Date(value)
@@ -145,6 +202,8 @@ export default function TripDetailScreen() {
 
   const [itineraryItems, setItineraryItems] = useState<ItineraryItem[]>([])
   const [tripMenuVisible, setTripMenuVisible] = useState(false)
+  const [activeFlightIndex, setActiveFlightIndex] = useState(0)
+  const [activeAccomIndex, setActiveAccomIndex] = useState(0)
 
   useFocusEffect(
     useCallback(() => {
@@ -544,83 +603,214 @@ export default function TripDetailScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Voos</Text>
-          <View style={styles.sectionCard}>
-            {flights.length === 0 ? (
+          <View style={styles.flightSectionHeader}>
+            <Text style={styles.sectionTitle}>Voos</Text>
+            <TouchableOpacity style={styles.flightAddIconBtn} onPress={openNewFlightModal}>
+              <Icon name="add" size={20} color={C.accent} />
+            </TouchableOpacity>
+          </View>
+
+          {flights.length === 0 ? (
+            <View style={styles.emptyFlightCard}>
+              <Icon name="flight" size={32} color={C.tertiary} />
               <Text style={styles.emptySectionText}>Nenhum voo cadastrado</Text>
-            ) : (
-              <View style={styles.flightsList}>
+            </View>
+          ) : (
+            <View style={styles.flightCarouselWrapper}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="fast"
+                onMomentumScrollEnd={(e) => {
+                  const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH)
+                  setActiveFlightIndex(idx)
+                }}
+              >
                 {flights.map((flight) => (
-                  <TouchableOpacity key={flight.id} style={styles.flightCard} activeOpacity={0.85} onPress={() => openEditFlightModal(flight)}>
-                    <View style={styles.flightCardInner}>
-                      <View style={styles.flightIconCircle}>
-                        <Icon name="flight" size={24} color={C.primary} />
-                      </View>
-                      <View style={styles.flightCardContent}>
-                        <View style={styles.flightCardHeader}>
-                          <Text style={styles.flightRoute}>{flight.departure_airport} - {flight.arrival_airport}</Text>
-                          <Text style={styles.flightCode}>{flight.airline} - {flight.flight_number}</Text>
-                        </View>
-                        <View style={styles.flightDateRow}>
-                          <Icon name="flight-takeoff" size={13} color={C.secondary} />
-                          <Text style={styles.flightDateText}>{formatDateTime(flight.departure_datetime)}</Text>
-                          {flight.arrival_datetime ? (
-                            <>
-                              <Text style={styles.flightDateSep}> • </Text>
-                              <Icon name="flight-land" size={13} color={C.secondary} />
-                              <Text style={styles.flightDateText}>{formatDateTime(flight.arrival_datetime)}</Text>
-                            </>
-                          ) : null}
-                        </View>
-                        {flight.notes ? <Text style={styles.flightNotes}>{flight.notes}</Text> : null}
+                  <TouchableOpacity
+                    key={flight.id}
+                    style={styles.flightCarouselCard}
+                    activeOpacity={0.93}
+                    onPress={() => openEditFlightModal(flight)}
+                  >
+                    {/* Top row: date + number badge */}
+                    <View style={styles.flightCardTopRow}>
+                      <Text style={styles.flightCardDateLabel}>{formatDateShort(flight.departure_datetime)}</Text>
+                      <View style={styles.flightNumBadge}>
+                        <Icon name="flight" size={11} color="#fff" />
+                        <Text style={styles.flightNumBadgeText}>{flight.flight_number}</Text>
                       </View>
                     </View>
+
+                    {/* Airline name */}
+                    <Text style={styles.flightCardAirline}>{flight.airline}</Text>
+
+                    {/* Route: times + airports */}
+                    <View style={styles.flightCardTimesRow}>
+                      <View>
+                        <Text style={styles.flightCardTime}>{formatTime(flight.departure_datetime)}</Text>
+                        <Text style={styles.flightCardAirport}>{flight.departure_airport}</Text>
+                      </View>
+
+                      <View style={styles.flightCardSep}>
+                        <View style={styles.flightCardLine} />
+                        <View style={{ transform: [{ rotate: '45deg' }] }}>
+                          <Icon name="flight" size={20} color={C.secondary} />
+                        </View>
+                        <View style={styles.flightCardLine} />
+                      </View>
+
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.flightCardTime}>{formatTime(flight.arrival_datetime)}</Text>
+                        <Text style={styles.flightCardAirport}>{flight.arrival_airport}</Text>
+                      </View>
+                    </View>
+
+                    {flight.notes ? (
+                      <Text style={styles.flightCardNotes} numberOfLines={2}>{flight.notes}</Text>
+                    ) : null}
+
                   </TouchableOpacity>
                 ))}
-              </View>
-            )}
+              </ScrollView>
 
-            <TouchableOpacity style={styles.addBtn} onPress={openNewFlightModal}>
-              <Icon name="add" size={16} color={C.accent} /><Text style={styles.addBtnText}>Adicionar voo</Text>
+              {flights.length > 1 && (
+                <View style={styles.flightPagDots}>
+                  {flights.map((_, i) => (
+                    <View key={i} style={[styles.flightPagDot, i === activeFlightIndex && styles.flightPagDotActive]} />
+                  ))}
+                </View>
+              )}
+
+            </View>
+          )}
+
+          <View style={styles.flightSectionHeader}>
+            <Text style={styles.sectionTitle}>Hospedagem</Text>
+            <TouchableOpacity style={styles.flightAddIconBtn} onPress={openNewAccommodationModal}>
+              <Icon name="add" size={20} color={C.accent} />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.sectionTitle}>Hospedagem</Text>
-          <View style={styles.sectionCard}>
-            {accommodations.length === 0 ? (
+          {accommodations.length === 0 ? (
+            <View style={styles.emptyFlightCard}>
+              <Icon name="hotel" size={32} color={C.tertiary} />
               <Text style={styles.emptySectionText}>Nenhuma hospedagem cadastrada</Text>
-            ) : (
-              <View style={styles.flightsList}>
-                {accommodations.map((accommodation) => (
-                  <TouchableOpacity
-                    key={accommodation.id}
-                    style={styles.accommodationCard}
-                    activeOpacity={0.85}
-                    onPress={() => openEditAccommodationModal(accommodation)}
-                  >
-                    {accommodation.image_url ? (
-                      <Image source={{ uri: accommodation.image_url }} style={styles.accommodationImage} resizeMode="cover" />
-                    ) : null}
-                    <Text style={styles.flightCode}>{accommodation.name}</Text>
-                    <Text style={styles.flightMeta}>{accommodation.location}</Text>
-                    {(accommodation.check_in_date || accommodation.check_in_time || accommodation.check_out_date || accommodation.check_out_time) ? (
-                      <Text style={styles.flightMeta}>
-                        Check-in: {formatDate(accommodation.check_in_date || '')} {accommodation.check_in_time || '--'} | Check-out: {formatDate(accommodation.check_out_date || '')} {accommodation.check_out_time || '--'}
-                      </Text>
-                    ) : null}
-                    {accommodation.link ? <Text style={styles.linkText}>{accommodation.link}</Text> : null}
-                    {accommodation.description ? <Text style={styles.flightNotes}>{accommodation.description}</Text> : null}
-                    <Text style={styles.editFlightHint}>Toque para editar</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            <TouchableOpacity style={styles.addBtn} onPress={openNewAccommodationModal}>
-              <Icon name="add" size={16} color={C.accent} /><Text style={styles.addBtnText}>Adicionar hospedagem</Text>
+            </View>
+          ) : (
+            <View style={styles.flightCarouselWrapper}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="fast"
+                onMomentumScrollEnd={(e) => {
+                  const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH)
+                  setActiveAccomIndex(idx)
+                }}
+              >
+                {accommodations.map((accom) => {
+                  const daysUntil = getDaysUntil(accom.check_in_date)
+                  const dateRange = formatDateRange(accom.check_in_date, accom.check_out_date)
+                  const checkInDay = formatWeekdayDay(accom.check_in_date)
+                  const checkOutDay = formatWeekdayDay(accom.check_out_date)
+
+                  return (
+                    <TouchableOpacity
+                      key={accom.id}
+                      style={styles.accomCarouselCard}
+                      activeOpacity={0.93}
+                      onPress={() => openEditAccommodationModal(accom)}
+                    >
+                      {/* Cover image */}
+                      <View style={styles.accomImageWrapper}>
+                        {accom.image_url ? (
+                          <Image source={{ uri: accom.image_url }} style={styles.accomCoverImage} resizeMode="cover" />
+                        ) : (
+                          <View style={styles.accomImagePlaceholder}>
+                            <Icon name="hotel" size={44} color={C.tertiary} />
+                          </View>
+                        )}
+                        {daysUntil ? (
+                          <View style={styles.accomDateBadge}>
+                            <Text style={styles.accomDateBadgeText}>{daysUntil}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      {/* Main info */}
+                      <View style={styles.accomCardBody}>
+                        <Text style={styles.accomCardTitle} numberOfLines={2}>{accom.name}</Text>
+                        {(dateRange || accom.location) ? (
+                          <Text style={styles.accomCardMeta} numberOfLines={1}>
+                            {[dateRange, accom.location].filter(Boolean).join(' · ')}
+                          </Text>
+                        ) : null}
+                        {accom.description ? (
+                          <Text style={styles.accomCardDesc} numberOfLines={2}>{accom.description}</Text>
+                        ) : null}
+                      </View>
+
+                      {/* Check-in / Check-out rows */}
+                      {(checkInDay || checkOutDay) ? (
+                        <View style={styles.accomCheckRows}>
+                          {checkInDay ? (
+                            <View style={styles.accomCheckRow}>
+                              <View style={styles.accomCheckDayBox}>
+                                <Text style={styles.accomCheckWeekday}>{checkInDay.weekday}</Text>
+                                <Text style={styles.accomCheckDayNum}>{checkInDay.day}</Text>
+                              </View>
+                              <View style={styles.accomCheckIconBox}>
+                                <Icon name="login" size={20} color={C.secondary} />
+                              </View>
+                              <Text style={styles.accomCheckLabel}>
+                                Check-in{accom.check_in_time ? ` · ${accom.check_in_time}` : ''}
+                              </Text>
+                            </View>
+                          ) : null}
+                          {checkOutDay ? (
+                            <View style={[styles.accomCheckRow, checkInDay ? styles.accomCheckRowBorder : null]}>
+                              <View style={styles.accomCheckDayBox}>
+                                <Text style={styles.accomCheckWeekday}>{checkOutDay.weekday}</Text>
+                                <Text style={styles.accomCheckDayNum}>{checkOutDay.day}</Text>
+                              </View>
+                              <View style={styles.accomCheckIconBox}>
+                                <Icon name="logout" size={20} color={C.secondary} />
+                              </View>
+                              <Text style={styles.accomCheckLabel}>
+                                Check-out{accom.check_out_time ? ` · ${accom.check_out_time}` : ''}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : null}
+
+                    </TouchableOpacity>
+                  )
+                })}
+              </ScrollView>
+
+              {accommodations.length > 1 && (
+                <View style={styles.flightPagDots}>
+                  {accommodations.map((_, i) => (
+                    <View key={i} style={[styles.flightPagDot, i === activeAccomIndex && styles.flightPagDotActive]} />
+                  ))}
+                </View>
+              )}
+
+            </View>
+          )}
+
+          <View style={styles.flightSectionHeader}>
+            <Text style={styles.sectionTitle}>Roteiro</Text>
+            <TouchableOpacity
+              style={styles.flightAddIconBtn}
+              onPress={() => trip && router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}
+            >
+              <Icon name="add" size={20} color={C.accent} />
             </TouchableOpacity>
           </View>
-
-          <Text style={styles.sectionTitle}>Roteiro</Text>
           <TouchableOpacity
             style={styles.sectionCard}
             activeOpacity={0.85}
@@ -642,63 +832,38 @@ export default function TripDetailScreen() {
                     {itineraryItems.length > 2 ? ` · +${itineraryItems.length - 2}` : ''}
                   </Text>
                 )}
-                <Text style={styles.itineraryPreviewAction}>Ver e gerenciar roteiro →</Text>
               </View>
             </View>
           </TouchableOpacity>
 
-          <Text style={styles.sectionTitle}>Gastos</Text>
-          <View style={styles.sectionCard}>
+          <View style={styles.flightSectionHeader}>
+            <Text style={styles.sectionTitle}>Gastos</Text>
+            <TouchableOpacity
+              style={styles.flightAddIconBtn}
+              onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title, openNew: '1' } })}
+            >
+              <Icon name="add" size={20} color={C.accent} />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.sectionCard}
+            onPress={() => trip && router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
+            activeOpacity={0.85}
+          >
             {expenses.length === 0 ? (
               <Text style={styles.emptySectionText}>Nenhum gasto registrado</Text>
             ) : (() => {
               const total = expenses.reduce((sum, e) => sum + e.amount, 0)
               const currency = expenses[expenses.length - 1]?.currency || 'BRL'
-
-              const byDay: Record<string, number> = {}
-              for (const e of expenses) {
-                byDay[e.date] = (byDay[e.date] || 0) + e.amount
-              }
-
-              // Gera os últimos 15 dias a partir de hoje, preenchendo com 0 quando sem gasto
-              const last15: { date: string; val: number }[] = []
-              for (let i = 14; i >= 0; i--) {
-                const d = new Date()
-                d.setDate(d.getDate() - i)
-                const key = d.toISOString().split('T')[0]
-                last15.push({ date: key, val: byDay[key] || 0 })
-              }
-              const maxDay = Math.max(...last15.map((x) => x.val), 1)
-
               const recent = [...expenses].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3)
-
               return (
                 <>
-                  <Text style={styles.expensesTotal}>
-                    {currency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Text>
-                  <Text style={styles.expensesTotalLabel}>total gasto</Text>
-
-                  <View style={styles.barChart}>
-                    {last15.map(({ date, val }) => {
-                      const [, m, d] = date.split('-')
-                      const label = `${d}/${m}`
-                      const pct = val / maxDay
-                      return (
-                        <View key={date} style={styles.barCol}>
-                          <View style={styles.barTrack}>
-                            {val > 0 ? (
-                              <View style={[styles.bar, { height: Math.max(6, pct * 80) }]} />
-                            ) : (
-                              <View style={styles.barEmpty} />
-                            )}
-                          </View>
-                          <Text style={styles.barLabel}>{label}</Text>
-                        </View>
-                      )
-                    })}
+                  <View style={styles.expensesTotalCard}>
+                    <Text style={styles.expensesTotalCardLabel}>Total gasto</Text>
+                    <Text style={styles.expensesTotalCardValue}>
+                      {currency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Text>
                   </View>
-
                   <View style={styles.recentExpenses}>
                     {recent.map((e) => (
                       <View key={e.id} style={styles.recentExpenseItem}>
@@ -717,88 +882,84 @@ export default function TripDetailScreen() {
               )
             })()}
 
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
-            >
-              <Icon name="add" size={16} color={C.accent} /><Text style={styles.addBtnText}>Registrar gasto</Text>
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
-      <Modal visible={flightsModalVisible} animationType="slide" transparent={false}>
-        <View style={styles.fullScreenContainer}>
-          <KeyboardAvoidingView style={styles.fullScreenKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <ScrollView contentContainerStyle={styles.fullScreenScroll} keyboardShouldPersistTaps="handled">
-              <View style={styles.fullScreenBox}>
-                  <View style={styles.modalHandle} />
-                  <Text style={styles.modalTitle}>{editingFlightId ? 'Editar voo' : 'Novo voo'}</Text>
-                  <Text style={styles.modalSubtitle}>Preencha os dados do voo</Text>
-
-                  <Text style={styles.sheetLabel}>Companhia *</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="flight" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder="Ex: LATAM" placeholderTextColor={C.tertiary} value={airline} onChangeText={setAirline} />
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Numero do voo *</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="confirmation-number" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder="Ex: LA 1234" placeholderTextColor={C.tertiary} value={flightNumber} onChangeText={setFlightNumber} />
-                  </View>
-
-                  <View style={styles.modalRow}>
-                    <View style={styles.modalCol}>
-                      <Text style={styles.sheetLabel}>Saida *</Text>
-                      <View style={styles.sheetInputRow}>
-                        <Icon name="flight-takeoff" size={18} color={C.secondary} />
-                        <TextInput style={styles.sheetInput} placeholder="GRU" placeholderTextColor={C.tertiary} value={departureAirport} onChangeText={setDepartureAirport} autoCapitalize="characters" />
-                      </View>
-                    </View>
-                    <View style={styles.modalCol}>
-                      <Text style={styles.sheetLabel}>Chegada *</Text>
-                      <View style={styles.sheetInputRow}>
-                        <Icon name="flight-land" size={18} color={C.secondary} />
-                        <TextInput style={styles.sheetInput} placeholder="MAD" placeholderTextColor={C.tertiary} value={arrivalAirport} onChangeText={setArrivalAirport} autoCapitalize="characters" />
-                      </View>
-                    </View>
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Data/hora saida *</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="schedule" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder={dateTimePlaceholder} placeholderTextColor={C.tertiary} value={departureDatetime} onChangeText={(v) => setDepartureDatetime(applyDateTimeMask(v))} keyboardType="numeric" />
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Data/hora chegada</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="schedule" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder={dateTimePlaceholder} placeholderTextColor={C.tertiary} value={arrivalDatetime} onChangeText={(v) => setArrivalDatetime(applyDateTimeMask(v))} keyboardType="numeric" />
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Observacoes</Text>
-                  <View style={[styles.sheetInputRow, styles.sheetInputRowMultiline]}>
-                    <Icon name="notes" size={20} color={C.secondary} />
-                    <TextInput style={[styles.sheetInput, styles.sheetInputMultiline]} placeholder="Ex: Terminal 2, portao C12" placeholderTextColor={C.tertiary} value={flightNotes} onChangeText={setFlightNotes} multiline />
-                  </View>
-
-                  <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveFlight} disabled={savingFlight || deletingFlight}>
-                    {savingFlight ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingFlightId ? 'Salvar edicao' : 'Salvar voo'}</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelSheetBtn} onPress={handleCloseFlightModal}>
-                    <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
-                  </TouchableOpacity>
-
-                  {editingFlightId ? (
-                    <TouchableOpacity style={styles.deleteFlightBtn} onPress={handleDeleteFlight} disabled={deletingFlight || savingFlight}>
-                      <Text style={styles.deleteFlightBtnText}>{deletingFlight ? 'Excluindo...' : 'Excluir voo'}</Text>
-                    </TouchableOpacity>
-                  ) : null}
+      <Modal visible={flightsModalVisible} animationType="slide" transparent={true}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseFlightModal} />
+          <View style={styles.sheetContainer}>
+            <View style={styles.modalHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>{editingFlightId ? 'Editar voo' : 'Novo voo'}</Text>
+                <Text style={styles.modalSubtitle}>Preencha os dados do voo</Text>
               </View>
+              {editingFlightId ? (
+                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteFlight} disabled={deletingFlight || savingFlight}>
+                  <Icon name="delete-outline" size={20} color={C.error} />
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseFlightModal}>
+                <Icon name="close" size={20} color={C.secondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={styles.sheetLabel}>Companhia *</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="flight" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder="Ex: LATAM" placeholderTextColor={C.tertiary} value={airline} onChangeText={setAirline} />
+              </View>
+
+              <Text style={styles.sheetLabel}>Numero do voo *</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="confirmation-number" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder="Ex: LA 1234" placeholderTextColor={C.tertiary} value={flightNumber} onChangeText={setFlightNumber} />
+              </View>
+
+              <View style={styles.modalRow}>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Saida *</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="flight-takeoff" size={18} color={C.secondary} />
+                    <TextInput style={styles.sheetInput} placeholder="GRU" placeholderTextColor={C.tertiary} value={departureAirport} onChangeText={setDepartureAirport} autoCapitalize="characters" />
+                  </View>
+                </View>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Chegada *</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="flight-land" size={18} color={C.secondary} />
+                    <TextInput style={styles.sheetInput} placeholder="MAD" placeholderTextColor={C.tertiary} value={arrivalAirport} onChangeText={setArrivalAirport} autoCapitalize="characters" />
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.sheetLabel}>Data/hora saida *</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="schedule" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder={dateTimePlaceholder} placeholderTextColor={C.tertiary} value={departureDatetime} onChangeText={(v) => setDepartureDatetime(applyDateTimeMask(v))} keyboardType="numeric" />
+              </View>
+
+              <Text style={styles.sheetLabel}>Data/hora chegada</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="schedule" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder={dateTimePlaceholder} placeholderTextColor={C.tertiary} value={arrivalDatetime} onChangeText={(v) => setArrivalDatetime(applyDateTimeMask(v))} keyboardType="numeric" />
+              </View>
+
+              <Text style={styles.sheetLabel}>Observacoes</Text>
+              <View style={[styles.sheetInputRow, styles.sheetInputRowMultiline]}>
+                <Icon name="notes" size={20} color={C.secondary} />
+                <TextInput style={[styles.sheetInput, styles.sheetInputMultiline]} placeholder="Ex: Terminal 2, portao C12" placeholderTextColor={C.tertiary} value={flightNotes} onChangeText={setFlightNotes} multiline />
+              </View>
+
+              <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveFlight} disabled={savingFlight || deletingFlight}>
+                {savingFlight ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingFlightId ? 'Salvar edicao' : 'Salvar voo'}</Text>}
+              </TouchableOpacity>
+
             </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={tripMenuVisible} animationType="fade" transparent>
@@ -815,92 +976,94 @@ export default function TripDetailScreen() {
         </Pressable>
       </Modal>
 
-      <Modal visible={accommodationModalVisible} animationType="slide" transparent={false}>
-        <View style={styles.fullScreenContainer}>
-          <KeyboardAvoidingView style={styles.fullScreenKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <ScrollView contentContainerStyle={styles.fullScreenScroll} keyboardShouldPersistTaps="handled">
-              <View style={styles.fullScreenBox}>
-                  <View style={styles.modalHandle} />
-                  <Text style={styles.modalTitle}>{editingAccommodationId ? 'Editar hospedagem' : 'Nova hospedagem'}</Text>
-                  <Text style={styles.modalSubtitle}>Preencha os dados da hospedagem</Text>
-
-                  <Text style={styles.sheetLabel}>Imagem do local</Text>
-                  <ImagePickerComponent imageUri={accommodationImageUri} onImageSelected={setAccommodationImageUri} />
-
-                  <Text style={styles.sheetLabel}>Nome *</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="hotel" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder="Ex: Hotel Central" placeholderTextColor={C.tertiary} value={accommodationName} onChangeText={setAccommodationName} />
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Local *</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="location-on" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder="Ex: Lisboa, Portugal" placeholderTextColor={C.tertiary} value={accommodationLocation} onChangeText={setAccommodationLocation} />
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Link</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="link" size={20} color={C.secondary} />
-                    <TextInput style={styles.sheetInput} placeholder="https://..." placeholderTextColor={C.tertiary} value={accommodationLink} onChangeText={setAccommodationLink} autoCapitalize="none" keyboardType="url" />
-                  </View>
-
-                  <View style={styles.modalRow}>
-                    <View style={styles.modalCol}>
-                      <Text style={styles.sheetLabel}>Data check-in</Text>
-                      <View style={styles.sheetInputRow}>
-                        <Icon name="calendar-today" size={16} color={C.secondary} />
-                        <TextInput style={styles.sheetInput} placeholder={datePlaceholder} placeholderTextColor={C.tertiary} value={accommodationCheckInDate} onChangeText={(v) => setAccommodationCheckInDate(applyDateMask(v))} keyboardType="numeric" />
-                      </View>
-                    </View>
-                    <View style={styles.modalCol}>
-                      <Text style={styles.sheetLabel}>Horario check-in</Text>
-                      <View style={styles.sheetInputRow}>
-                        <Icon name="schedule" size={16} color={C.secondary} />
-                        <TextInput style={styles.sheetInput} placeholder={timePlaceholder} placeholderTextColor={C.tertiary} value={accommodationCheckIn} onChangeText={(v) => setAccommodationCheckIn(applyTimeMask(v))} keyboardType="numeric" />
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.modalRow}>
-                    <View style={styles.modalCol}>
-                      <Text style={styles.sheetLabel}>Data check-out</Text>
-                      <View style={styles.sheetInputRow}>
-                        <Icon name="calendar-today" size={16} color={C.secondary} />
-                        <TextInput style={styles.sheetInput} placeholder={datePlaceholder} placeholderTextColor={C.tertiary} value={accommodationCheckOutDate} onChangeText={(v) => setAccommodationCheckOutDate(applyDateMask(v))} keyboardType="numeric" />
-                      </View>
-                    </View>
-                    <View style={styles.modalCol}>
-                      <Text style={styles.sheetLabel}>Horario check-out</Text>
-                      <View style={styles.sheetInputRow}>
-                        <Icon name="schedule" size={16} color={C.secondary} />
-                        <TextInput style={styles.sheetInput} placeholder={timePlaceholder} placeholderTextColor={C.tertiary} value={accommodationCheckOut} onChangeText={(v) => setAccommodationCheckOut(applyTimeMask(v))} keyboardType="numeric" />
-                      </View>
-                    </View>
-                  </View>
-
-                  <Text style={styles.sheetLabel}>Descricao</Text>
-                  <View style={[styles.sheetInputRow, styles.sheetInputRowMultiline]}>
-                    <Icon name="notes" size={20} color={C.secondary} />
-                    <TextInput style={[styles.sheetInput, styles.sheetInputMultiline]} placeholder="Detalhes da hospedagem" placeholderTextColor={C.tertiary} value={accommodationDescription} onChangeText={setAccommodationDescription} multiline />
-                  </View>
-
-                  <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveAccommodation} disabled={savingAccommodation || deletingAccommodation}>
-                    {savingAccommodation ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingAccommodationId ? 'Salvar edicao' : 'Salvar hospedagem'}</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelSheetBtn} onPress={handleCloseAccommodationModal}>
-                    <Text style={styles.cancelSheetBtnText}>Cancelar</Text>
-                  </TouchableOpacity>
-
-                  {editingAccommodationId ? (
-                    <TouchableOpacity style={styles.deleteFlightBtn} onPress={handleDeleteAccommodation} disabled={deletingAccommodation || savingAccommodation}>
-                      <Text style={styles.deleteFlightBtnText}>{deletingAccommodation ? 'Excluindo...' : 'Excluir hospedagem'}</Text>
-                    </TouchableOpacity>
-                  ) : null}
+      <Modal visible={accommodationModalVisible} animationType="slide" transparent={true}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseAccommodationModal} />
+          <View style={styles.sheetContainer}>
+            <View style={styles.modalHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>{editingAccommodationId ? 'Editar hospedagem' : 'Nova hospedagem'}</Text>
+                <Text style={styles.modalSubtitle}>Preencha os dados da hospedagem</Text>
               </View>
+              {editingAccommodationId ? (
+                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteAccommodation} disabled={deletingAccommodation || savingAccommodation}>
+                  <Icon name="delete-outline" size={20} color={C.error} />
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseAccommodationModal}>
+                <Icon name="close" size={20} color={C.secondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={styles.sheetLabel}>Imagem do local</Text>
+              <ImagePickerComponent imageUri={accommodationImageUri} onImageSelected={setAccommodationImageUri} />
+
+              <Text style={styles.sheetLabel}>Nome *</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="hotel" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder="Ex: Hotel Central" placeholderTextColor={C.tertiary} value={accommodationName} onChangeText={setAccommodationName} />
+              </View>
+
+              <Text style={styles.sheetLabel}>Local *</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="location-on" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder="Ex: Lisboa, Portugal" placeholderTextColor={C.tertiary} value={accommodationLocation} onChangeText={setAccommodationLocation} />
+              </View>
+
+              <Text style={styles.sheetLabel}>Link</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="link" size={20} color={C.secondary} />
+                <TextInput style={styles.sheetInput} placeholder="https://..." placeholderTextColor={C.tertiary} value={accommodationLink} onChangeText={setAccommodationLink} autoCapitalize="none" keyboardType="url" />
+              </View>
+
+              <View style={styles.modalRow}>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Data check-in</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="calendar-today" size={16} color={C.secondary} />
+                    <TextInput style={styles.sheetInput} placeholder={datePlaceholder} placeholderTextColor={C.tertiary} value={accommodationCheckInDate} onChangeText={(v) => setAccommodationCheckInDate(applyDateMask(v))} keyboardType="numeric" />
+                  </View>
+                </View>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Horario check-in</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="schedule" size={16} color={C.secondary} />
+                    <TextInput style={styles.sheetInput} placeholder={timePlaceholder} placeholderTextColor={C.tertiary} value={accommodationCheckIn} onChangeText={(v) => setAccommodationCheckIn(applyTimeMask(v))} keyboardType="numeric" />
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.modalRow}>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Data check-out</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="calendar-today" size={16} color={C.secondary} />
+                    <TextInput style={styles.sheetInput} placeholder={datePlaceholder} placeholderTextColor={C.tertiary} value={accommodationCheckOutDate} onChangeText={(v) => setAccommodationCheckOutDate(applyDateMask(v))} keyboardType="numeric" />
+                  </View>
+                </View>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Horario check-out</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="schedule" size={16} color={C.secondary} />
+                    <TextInput style={styles.sheetInput} placeholder={timePlaceholder} placeholderTextColor={C.tertiary} value={accommodationCheckOut} onChangeText={(v) => setAccommodationCheckOut(applyTimeMask(v))} keyboardType="numeric" />
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.sheetLabel}>Descricao</Text>
+              <View style={[styles.sheetInputRow, styles.sheetInputRowMultiline]}>
+                <Icon name="notes" size={20} color={C.secondary} />
+                <TextInput style={[styles.sheetInput, styles.sheetInputMultiline]} placeholder="Detalhes da hospedagem" placeholderTextColor={C.tertiary} value={accommodationDescription} onChangeText={setAccommodationDescription} multiline />
+              </View>
+
+              <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveAccommodation} disabled={savingAccommodation || deletingAccommodation}>
+                {savingAccommodation ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingAccommodationId ? 'Salvar edicao' : 'Salvar hospedagem'}</Text>}
+              </TouchableOpacity>
+
             </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   )
@@ -934,6 +1097,39 @@ const styles = StyleSheet.create({
   dateSep: { fontSize: 16, color: C.tertiary },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: C.primary, marginBottom: 10, marginTop: 8 },
   sectionCard: { backgroundColor: C.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 0.5, borderColor: C.border },
+  // Flight carousel
+  flightSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 8 },
+  flightAddIconBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh, borderWidth: 0.5, borderColor: C.border },
+  emptyFlightCard: { backgroundColor: C.surface, borderRadius: 20, padding: 24, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', gap: 10 },
+  flightCarouselWrapper: { marginBottom: 16 },
+  flightCarouselCard: {
+    width: CARD_WIDTH,
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 0.5,
+    borderColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  flightCardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  flightCardDateLabel: { fontSize: 12, color: C.tertiary, fontWeight: '500' },
+  flightNumBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  flightNumBadgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  flightCardAirline: { fontSize: 15, fontWeight: '700', color: C.primary, marginBottom: 20 },
+  flightCardTimesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  flightCardTime: { fontSize: 32, fontWeight: '800', color: C.primary },
+  flightCardAirport: { fontSize: 13, fontWeight: '600', color: C.secondary, marginTop: 2 },
+  flightCardSep: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 },
+  flightCardLine: { flex: 1, height: 1.5, backgroundColor: C.border },
+  flightCardNotes: { fontSize: 12, color: C.secondary, marginBottom: 8, lineHeight: 17 },
+  flightPagDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 4 },
+  flightPagDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.border },
+  flightPagDotActive: { width: 20, height: 6, borderRadius: 3, backgroundColor: C.primary },
+  // Legacy (kept for accommodation reuse)
   flightsList: { gap: 10, marginBottom: 12 },
   flightCard: { backgroundColor: C.surfaceHigh, borderRadius: 14, borderWidth: 0.5, borderColor: C.border, padding: 14 },
   flightCardInner: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -950,6 +1146,52 @@ const styles = StyleSheet.create({
   flightMeta: { fontSize: 12, color: C.secondary, marginTop: 4 },
   flightNotes: { fontSize: 12, color: C.accent, marginTop: 6 },
   editFlightHint: { fontSize: 11, color: C.accent, marginTop: 10, fontWeight: '500' },
+  // Accommodation carousel
+  accomCarouselCard: {
+    width: CARD_WIDTH,
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+    marginBottom: 4,
+  },
+  accomImageWrapper: { position: 'relative', width: '100%', height: 200 },
+  accomCoverImage: { width: '100%', height: 200 },
+  accomImagePlaceholder: {
+    width: '100%', height: 200,
+    backgroundColor: C.surfaceHigh,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  accomDateBadge: {
+    position: 'absolute', top: 14, left: 14,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
+  },
+  accomDateBadgeText: { fontSize: 13, fontWeight: '700', color: C.primary },
+  accomCardBody: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
+  accomCardTitle: { fontSize: 22, fontWeight: '800', color: C.primary, marginBottom: 4, lineHeight: 28 },
+  accomCardMeta: { fontSize: 13, color: C.secondary, marginBottom: 6 },
+  accomCardDesc: { fontSize: 12, color: C.tertiary, lineHeight: 17, marginTop: 4 },
+  accomCheckRows: { borderTopWidth: 0.5, borderTopColor: C.border, marginTop: 4 },
+  accomCheckRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+  accomCheckRowBorder: { borderTopWidth: 0.5, borderTopColor: C.border },
+  accomCheckDayBox: { width: 40, alignItems: 'center', marginRight: 12 },
+  accomCheckWeekday: { fontSize: 11, color: C.tertiary, fontWeight: '600', textTransform: 'lowercase' },
+  accomCheckDayNum: { fontSize: 22, fontWeight: '700', color: C.primary },
+  accomCheckIconBox: {
+    width: 44, height: 44, borderRadius: 10,
+    backgroundColor: C.surfaceHigh,
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 14,
+  },
+  accomCheckLabel: { flex: 1, fontSize: 14, fontWeight: '500', color: C.primary },
+  // Legacy
   accommodationCard: { backgroundColor: C.surfaceHigh, borderRadius: 10, borderWidth: 0.5, borderColor: C.border, padding: 12 },
   accommodationImage: { width: '100%', height: 120, borderRadius: 8, marginBottom: 8 },
   linkText: { fontSize: 12, color: C.accent, marginTop: 6 },
@@ -957,24 +1199,34 @@ const styles = StyleSheet.create({
   emptySectionText: { fontSize: 13, color: C.tertiary, marginBottom: 10 },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 0.5, borderColor: C.accent, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7, alignSelf: 'center' },
   addBtnText: { color: C.accent, fontSize: 12, fontWeight: '500' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheetKeyboard: {},
+  sheetContainer: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    maxHeight: '90%',
+  },
+  sheetHeaderRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
+  },
+  sheetDeleteBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFF0EF', marginRight: 16,
+  },
+  sheetCloseBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceHigh,
+  },
+  sheetScroll: { paddingHorizontal: 24, paddingBottom: 34 },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' },
   menuPanel: { position: 'absolute', top: 104, right: 20, backgroundColor: C.surface, borderRadius: 12, borderWidth: 0.5, borderColor: C.border, minWidth: 180, overflow: 'hidden' },
   menuItem: { paddingVertical: 12, paddingHorizontal: 16 },
   menuItemText: { fontSize: 13, color: C.primary, fontWeight: '600' },
   menuItemDanger: { color: C.error },
   menuDivider: { height: 1, backgroundColor: C.border },
-  fullScreenContainer: { flex: 1, backgroundColor: C.background },
-  fullScreenKeyboard: { flex: 1 },
-  fullScreenScroll: { flexGrow: 1 },
-  fullScreenBox: { flex: 1, backgroundColor: C.background, padding: 24, paddingTop: 50, paddingBottom: 32 },
-  modalKeyboard: { flex: 1, justifyContent: 'flex-end' },
-  modalScrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
-  modalBox: {
-    backgroundColor: C.surface,
-    borderTopLeftRadius: 48, borderTopRightRadius: 48,
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44,
-  },
   modalHandle: {
     width: 48, height: 6, borderRadius: 3,
     backgroundColor: 'rgba(0,0,0,0.1)',
@@ -1017,6 +1269,11 @@ const styles = StyleSheet.create({
   deleteFlightBtnText: { color: C.error, fontSize: 14, fontWeight: '600' },
   expensesTotal: { fontSize: 28, fontWeight: '700', color: C.primary, textAlign: 'center', marginTop: 4 },
   expensesTotalLabel: { fontSize: 12, color: C.tertiary, textAlign: 'center', marginBottom: 16 },
+  expensesTotalCard: {
+    backgroundColor: C.primary, borderRadius: 12, padding: 16, marginBottom: 14,
+  },
+  expensesTotalCardLabel: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 4 },
+  expensesTotalCardValue: { fontSize: 28, fontWeight: '700', color: '#fff' },
   barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 4 },
   barCol: { flex: 1, alignItems: 'center', gap: 4 },
   barTrack: { width: '100%', height: 64, justifyContent: 'flex-end' },
