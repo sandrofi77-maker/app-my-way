@@ -9,12 +9,12 @@ export const Colors = {
     border: '#E5E5EA',        // cinza suave
 
     // Textos
-    primary: '#000000',       // preto (títulos e textos principais)
+    primary: '#0F2F59',       // azul escuro (títulos e textos principais)
     secondary: '#6C6C70',     // cinza médio (textos secundários)
     tertiary: '#AEAEB2',      // cinza claro (placeholders)
 
     // Cores de destaque
-    accent: '#000000',        // roda (links e destaques)
+    accent: '#0F2F59',        // azul escuro (links e destaques)
     accentLight: '#EEEDFE',   // violeta claro (badges)
     success: '#2abd6e',       // verde iOS
     error: '#ff0d00',         // vermelho iOS
