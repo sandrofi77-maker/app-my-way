@@ -41,6 +41,7 @@ type ItineraryItem = {
   description: string | null
   scheduled_date: string | null
   scheduled_time: string | null
+  end_time: string | null
   location: string | null
   image_url: string | null
   category: string | null
@@ -59,13 +60,27 @@ function getDaysArray(start: string, end: string): string[] {
   return days
 }
 
-function formatDate(date: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
-  const d = match
-    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-    : new Date(date)
-  if (isNaN(d.getTime())) return date
-  return d.toLocaleDateString(getDeviceLocale(), { day: '2-digit', month: 'long', year: 'numeric' })
+
+const HOUR_HEIGHT = 80
+const GRID_START_HOUR = 0
+const GRID_END_HOUR = 24
+const GRID_HOURS = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i)
+
+function timeToMinutes(t: string): number {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t)
+  if (!m) return 0
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+function getTopOffset(time: string): number {
+  const mins = timeToMinutes(time) - GRID_START_HOUR * 60
+  return Math.max(0, (mins / 60) * HOUR_HEIGHT)
+}
+
+function getEventHeight(startTime: string, endTime: string | null): number {
+  if (!endTime) return HOUR_HEIGHT
+  const duration = timeToMinutes(endTime) - timeToMinutes(startTime)
+  return Math.max((duration / 60) * HOUR_HEIGHT, 56)
 }
 
 export default function ItineraryScreen() {
@@ -91,6 +106,7 @@ export default function ItineraryScreen() {
   const [itemDescription, setItemDescription] = useState('')
   const [itemDate,        setItemDate]        = useState('')
   const [itemTime,        setItemTime]        = useState('')
+  const [itemEndTime,     setItemEndTime]     = useState('')
   const [itemLocation,    setItemLocation]    = useState('')
   const [itemCategory,    setItemCategory]    = useState('free')
   const [itemImageUri,    setItemImageUri]    = useState<string | null>(null)
@@ -121,6 +137,7 @@ export default function ItineraryScreen() {
     setItemDescription('')
     setItemDate('')
     setItemTime('')
+    setItemEndTime('')
     setItemLocation('')
     setItemCategory('free')
     setItemImageUri(null)
@@ -138,6 +155,7 @@ export default function ItineraryScreen() {
     setItemDescription(item.description || '')
     setItemDate(formatDateForInput(item.scheduled_date))
     setItemTime(item.scheduled_time || '')
+    setItemEndTime(item.end_time || '')
     setItemLocation(item.location || '')
     setItemCategory(item.category || 'free')
     setItemImageUri(item.image_url || null)
@@ -175,6 +193,7 @@ export default function ItineraryScreen() {
         description:    itemDescription.trim() || null,
         scheduled_date: dateISO,
         scheduled_time: timeVal,
+        end_time:       toTimeOrNull(itemEndTime),
         location:       itemLocation.trim() || null,
         category:       itemCategory,
         image_url:      itemImageUri || null,
@@ -255,7 +274,7 @@ export default function ItineraryScreen() {
                   <TouchableOpacity
                     key={day}
                     style={[styles.dayCard, isActive && styles.dayCardActive]}
-                    onPress={() => setSelectedDate(isActive ? null : day)}
+                    onPress={() => { if (!isActive) setSelectedDate(day) }}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.dayMonth,   isActive && styles.dayTextActive]}>{monthStr}</Text>
@@ -270,7 +289,7 @@ export default function ItineraryScreen() {
             {/* Bento summary */}
             <View style={styles.bentoRow}>
               <View style={styles.bentoCard}>
-                <Text style={styles.bentoLabel}>Eventos</Text>
+                <Text style={styles.bentoLabel}>Eventos do dia</Text>
                 <View style={styles.bentoValueRow}>
                   <Text style={styles.bentoNumber}>{String(filteredItems.length).padStart(2, '0')}</Text>
                   <Text style={styles.bentoUnit}>planejados</Text>
@@ -287,91 +306,104 @@ export default function ItineraryScreen() {
           </View>
         )}
 
-        {/* ── Timeline ── */}
-        <View style={styles.timelineSection}>
-          <View style={styles.timelineTitleRow}>
-            <Text style={styles.timelineSectionTitle}>
-              {selectedDate ? 'Eventos do dia' : 'Todos os eventos'}
-            </Text>
-            <View style={styles.timelineTitleLine} />
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={C.secondary} style={{ marginTop: 32 }} />
-          ) : filteredItems.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Icon name="event-note" size={36} color={C.tertiary} />
-              <Text style={styles.emptyStateText}>Nenhum item no roteiro</Text>
-              <TouchableOpacity style={styles.emptyAddBtn} onPress={openNewModal} activeOpacity={0.8}>
-                <Icon name="add" size={14} color={C.accent} />
-                <Text style={styles.emptyAddBtnText}>Adicionar item</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.timeline}>
-              {filteredItems.map((item, idx) => {
-                const catConf = getCategoryConfig(item.category)
-                return (
-                  <View key={item.id} style={styles.timelineRow}>
-                    {/* Left: dot + line */}
-                    <View style={styles.timelineLeftCol}>
-                      <View style={[styles.timelineDot, { borderColor: catConf.color, backgroundColor: catConf.color + '22' }]}>
-                        <Icon name={catConf.icon} size={11} color={catConf.color} />
+        {/* ── Time Grid ── */}
+        {loading ? (
+          <ActivityIndicator color={C.secondary} style={{ marginTop: 32 }} />
+        ) : (
+          <View style={styles.timeGridSection}>
+            {/* Items sem horário */}
+            {filteredItems.filter(i => !i.scheduled_time).length > 0 && (
+              <View style={styles.untimedSection}>
+                <Text style={styles.untimedTitle}>Sem horário definido</Text>
+                {filteredItems.filter(i => !i.scheduled_time).map((item) => {
+                  const catConf = getCategoryConfig(item.category)
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.untimedCard, { borderLeftColor: catConf.color }]}
+                      onPress={() => openEditModal(item)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={[styles.catChip, { backgroundColor: catConf.color + '18' }]}>
+                        <Icon name={catConf.icon} size={10} color={catConf.color} />
+                        <Text style={[styles.catChipText, { color: catConf.color }]}>{catConf.label}</Text>
                       </View>
-                      {idx < filteredItems.length - 1 && <View style={styles.timelineConnector} />}
-                    </View>
-
-                    {/* Right: time + card */}
-                    <View style={styles.timelineRightCol}>
-                      {item.scheduled_time ? (
-                        <Text style={styles.timelineTime}>{item.scheduled_time}</Text>
-                      ) : item.scheduled_date ? (
-                        <Text style={styles.timelineTime}>{formatDate(item.scheduled_date)}</Text>
+                      <Text style={styles.untimedCardTitle}>{item.title}</Text>
+                      {item.location ? (
+                        <View style={styles.timelineLocationRow}>
+                          <Icon name="location-on" size={12} color={C.secondary} />
+                          <Text style={styles.timelineLocation}>{item.location}</Text>
+                        </View>
                       ) : null}
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            )}
 
+            {/* Grade de horários — sempre visível */}
+            <View style={styles.gridRow}>
+              {/* Coluna de horas */}
+              <View style={styles.hourColumn}>
+                {GRID_HOURS.map(h => (
+                  <View key={h} style={styles.hourCell}>
+                    <Text style={styles.hourLabel}>{String(h).padStart(2, '0')}:00</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Área de eventos */}
+              <View style={[styles.eventsArea, { height: (GRID_END_HOUR - GRID_START_HOUR) * HOUR_HEIGHT }]}>
+                {/* Linhas da grade */}
+                {GRID_HOURS.map(h => (
+                  <View
+                    key={h}
+                    style={[styles.gridLine, { top: (h - GRID_START_HOUR) * HOUR_HEIGHT }]}
+                  />
+                ))}
+
+                {/* Cards de eventos posicionados absolutamente */}
+                {filteredItems.filter(i => !!i.scheduled_time).map((item) => {
+                    const catConf = getCategoryConfig(item.category)
+                    const top = getTopOffset(item.scheduled_time!)
+                    const height = getEventHeight(item.scheduled_time!, item.end_time)
+                    return (
                       <TouchableOpacity
-                        style={[styles.timelineCard, { borderLeftColor: catConf.color }]}
+                        key={item.id}
+                        style={[styles.eventCard, { top, height: Math.max(height, 40), borderLeftColor: catConf.color }]}
                         onPress={() => openEditModal(item)}
                         activeOpacity={0.85}
                       >
-                        {/* Cover image */}
-                        {item.image_url ? (
-                          <View style={styles.cardImageWrapper}>
-                            <Image source={{ uri: item.image_url }} style={styles.cardImage} resizeMode="cover" />
-                            <View style={[styles.cardImageBadge, { backgroundColor: catConf.color }]}>
-                              <Icon name={catConf.icon} size={10} color="#fff" />
-                              <Text style={styles.cardImageBadgeText}>{catConf.label}</Text>
-                            </View>
-                          </View>
-                        ) : (
-                          <View style={styles.cardTopRow}>
-                            <View style={[styles.catChip, { backgroundColor: catConf.color + '18' }]}>
-                              <Icon name={catConf.icon} size={10} color={catConf.color} />
+                        <View style={styles.eventCardInner}>
+                          <View style={styles.eventCardMeta}>
+                            <View style={[styles.catChip, { backgroundColor: catConf.color + '18', flexShrink: 0 }]}>
+                              <Icon name={catConf.icon} size={9} color={catConf.color} />
                               <Text style={[styles.catChipText, { color: catConf.color }]}>{catConf.label}</Text>
                             </View>
+                            {item.scheduled_time ? (
+                              <Text style={[styles.eventCardTime, { flexShrink: 0 }]}>
+                                {item.end_time ? `${item.scheduled_time} – ${item.end_time}` : item.scheduled_time}
+                              </Text>
+                            ) : null}
+                            {item.location ? (
+                              <View style={styles.eventCardLocRow}>
+                                <Icon name="location-on" size={9} color={C.secondary} />
+                                <Text style={styles.eventCardLocText} numberOfLines={1}>{item.location}</Text>
+                              </View>
+                            ) : null}
                           </View>
-                        )}
-
-                        <View style={styles.cardBody}>
-                          <Text style={styles.timelineCardTitle}>{item.title}</Text>
-                          {item.location ? (
-                            <View style={styles.timelineLocationRow}>
-                              <Icon name="location-on" size={13} color={C.secondary} />
-                              <Text style={styles.timelineLocation}>{item.location}</Text>
-                            </View>
-                          ) : null}
-                          {item.description ? (
-                            <Text style={styles.timelineDesc} numberOfLines={2}>{item.description}</Text>
+                          <Text style={styles.eventCardTitle} numberOfLines={2}>{item.title}</Text>
+                          {item.image_url ? (
+                            <Image source={{ uri: item.image_url }} style={styles.eventCardThumb} resizeMode="cover" />
                           ) : null}
                         </View>
                       </TouchableOpacity>
-                    </View>
-                  </View>
-                )
-              })}
-            </View>
-          )}
-        </View>
+                    )
+                  })}
+                </View>
+              </View>
+          </View>
+        )}
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -457,24 +489,24 @@ export default function ItineraryScreen() {
                 />
               </View>
 
-              {/* Date + Time */}
+              {/* Date */}
+              <Text style={styles.sheetLabel}>Data</Text>
+              <View style={styles.sheetInputRow}>
+                <Icon name="calendar-today" size={18} color={C.secondary} />
+                <TextInput
+                  style={styles.sheetInput}
+                  placeholder={datePlaceholder}
+                  placeholderTextColor={C.tertiary}
+                  value={itemDate}
+                  onChangeText={(v) => setItemDate(applyDateMask(v))}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {/* Start + End Time */}
               <View style={styles.modalRow}>
                 <View style={styles.modalCol}>
-                  <Text style={styles.sheetLabel}>Data</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="calendar-today" size={18} color={C.secondary} />
-                    <TextInput
-                      style={styles.sheetInput}
-                      placeholder={datePlaceholder}
-                      placeholderTextColor={C.tertiary}
-                      value={itemDate}
-                      onChangeText={(v) => setItemDate(applyDateMask(v))}
-                      keyboardType="numeric"
-                    />
-                  </View>
-                </View>
-                <View style={styles.modalCol}>
-                  <Text style={styles.sheetLabel}>Horario</Text>
+                  <Text style={styles.sheetLabel}>Hora Início</Text>
                   <View style={styles.sheetInputRow}>
                     <Icon name="schedule" size={18} color={C.secondary} />
                     <TextInput
@@ -483,6 +515,20 @@ export default function ItineraryScreen() {
                       placeholderTextColor={C.tertiary}
                       value={itemTime}
                       onChangeText={(v) => setItemTime(applyTimeMask(v))}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+                <View style={styles.modalCol}>
+                  <Text style={styles.sheetLabel}>Hora Fim</Text>
+                  <View style={styles.sheetInputRow}>
+                    <Icon name="schedule" size={18} color={C.secondary} />
+                    <TextInput
+                      style={styles.sheetInput}
+                      placeholder={timePlaceholder}
+                      placeholderTextColor={C.tertiary}
+                      value={itemEndTime}
+                      onChangeText={(v) => setItemEndTime(applyTimeMask(v))}
                       keyboardType="numeric"
                     />
                   </View>
@@ -582,48 +628,9 @@ const styles = StyleSheet.create({
   bentoNumber:   { fontSize: 28, fontWeight: '800', color: C.primary },
   bentoUnit:     { fontSize: 13, color: C.secondary, fontWeight: '500' },
 
-  // Timeline
-  timelineSection:      { paddingHorizontal: 20, marginTop: 24 },
-  timelineTitleRow:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
-  timelineSectionTitle: { fontSize: 18, fontWeight: '700', color: C.primary },
-  timelineTitleLine:    { flex: 1, height: 1, backgroundColor: C.border },
-
-  timeline:          { gap: 0 },
-  timelineRow:       { flexDirection: 'row', gap: 14 },
-  timelineLeftCol:   { alignItems: 'center', width: 28 },
-  timelineDot: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, marginTop: 4, zIndex: 1,
-  },
-  timelineConnector: { flex: 1, width: 2, backgroundColor: C.border, marginTop: 2, marginBottom: -4 },
-  timelineRightCol:  { flex: 1, paddingBottom: 24 },
-  timelineTime: {
-    fontSize: 11, fontWeight: '700', color: C.tertiary,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6,
-  },
-
-  // Card
-  timelineCard: {
-    backgroundColor: C.surface, borderRadius: 18,
-    borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
-    overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
-  },
-  cardImageWrapper: { position: 'relative', width: '100%', height: 130 },
-  cardImage:        { width: '100%', height: '100%' },
-  cardImageBadge: {
-    position: 'absolute', top: 10, left: 10,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-  },
-  cardImageBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-  cardTopRow:   { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
+  // Shared chip + location styles (kept from timeline)
   catChip:      { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   catChipText:  { fontSize: 10, fontWeight: '700' },
-  cardBody:     { padding: 14, paddingTop: 8 },
-
-  timelineCardTitle: { fontSize: 15, fontWeight: '700', color: C.primary, marginBottom: 4 },
   timelineLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   timelineLocation:    { fontSize: 12, color: C.secondary, flex: 1 },
   timelineDesc:        { fontSize: 12, color: C.secondary, marginTop: 6, lineHeight: 17 },
@@ -707,4 +714,36 @@ const styles = StyleSheet.create({
   },
   deleteBtn:         { marginTop: 12, borderWidth: 0.5, borderColor: C.error, borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   deleteBtnText:     { color: C.error, fontSize: 14, fontWeight: '600' },
+
+  // Time Grid
+  timeGridSection: { paddingHorizontal: 20, marginTop: 16 },
+  untimedSection: { marginBottom: 20 },
+  untimedTitle: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
+  untimedCard: {
+    backgroundColor: C.surface, borderRadius: 14, padding: 12,
+    borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
+    marginBottom: 8,
+  },
+  untimedCardTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginTop: 4 },
+  gridRow: { flexDirection: 'row' },
+  hourColumn: { width: 44 },
+  hourCell: { height: HOUR_HEIGHT, justifyContent: 'flex-start', paddingTop: 0 },
+  hourLabel: { fontSize: 10, fontWeight: '700', color: C.tertiary, textAlign: 'right', paddingRight: 8, transform: [{ translateY: -6 }] },
+  eventsArea: { flex: 1, position: 'relative' },
+  gridLine: { position: 'absolute', left: 0, right: 0, height: 0.5, backgroundColor: C.border },
+  eventCard: {
+    position: 'absolute', left: 4, right: 4,
+    backgroundColor: C.surface, borderRadius: 14,
+    borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
+    overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+  },
+  eventCardRow: { flexDirection: 'row', flex: 1, overflow: 'hidden' },
+  eventCardInner: { padding: 8, flexDirection: 'column' },
+  eventCardThumb: { width: '100%', height: 100, marginTop: 8, borderRadius: 14 },
+  eventCardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'nowrap' },
+  eventCardLocRow: { flexDirection: 'row', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 },
+  eventCardLocText: { fontSize: 10, color: C.secondary, flexShrink: 1 },
+  eventCardTitle: { fontSize: 13, fontWeight: '700', color: C.primary, marginTop: 3, marginBottom: 2 },
+  eventCardTime: { fontSize: 10, fontWeight: '600', color: C.secondary },
 })

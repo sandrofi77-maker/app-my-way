@@ -68,13 +68,36 @@ type ItineraryItem = {
   description: string | null
   scheduled_date: string | null
   scheduled_time: string | null
+  end_time: string | null
   location: string | null
+  category: string | null
   created_at: string
+}
+
+const ITINERARY_CATEGORY_CONF: Record<string, { icon: string; color: string }> = {
+  'flight':        { icon: 'flight',          color: '#000000' },
+  'transport':     { icon: 'directions-car',  color: '#32ADE6' },
+  'accommodation': { icon: 'hotel',           color: '#5856D6' },
+  'food':          { icon: 'restaurant',      color: '#FF9500' },
+  'sightseeing':   { icon: 'place',           color: '#34C759' },
+  'event':         { icon: 'event',           color: '#FF2D55' },
+  'shopping':      { icon: 'shopping-bag',    color: '#AF52DE' },
+  'free':          { icon: 'beach-access',    color: '#8E8E93' },
 }
 
 const CATEGORY_ICON_NAMES: Record<string, string> = {
   'Hospedagem': 'hotel', 'Alimentação': 'restaurant', 'Transporte': 'directions-car',
   'Passeios': 'attractions', 'Compras': 'shopping-bag', 'Saúde': 'medical-services', 'Outros': 'payments'
+}
+
+const EXPENSE_CATEGORY_CONF: Record<string, { icon: string; color: string }> = {
+  'Hospedagem': { icon: 'hotel',             color: '#5856D6' },
+  'Alimentação': { icon: 'restaurant',       color: '#FF9500' },
+  'Transporte':  { icon: 'directions-car',   color: '#32ADE6' },
+  'Passeios':    { icon: 'attractions',      color: '#34C759' },
+  'Compras':     { icon: 'shopping-bag',     color: '#AF52DE' },
+  'Saúde':       { icon: 'medical-services', color: '#FF2D55' },
+  'Outros':      { icon: 'payments',         color: '#8E8E93' },
 }
 
 function formatDate(date: string) {
@@ -240,7 +263,7 @@ export default function TripDetailScreen() {
       .from('accommodations')
       .select('*')
       .eq('trip_id', tripId)
-      .order('created_at', { ascending: false })
+      .order('check_in_date', { ascending: true, nullsFirst: false })
 
     if (!error) setAccommodations(data || [])
   }
@@ -812,28 +835,53 @@ export default function TripDetailScreen() {
             </TouchableOpacity>
           </View>
           <TouchableOpacity
-            style={styles.sectionCard}
+            style={styles.itineraryCard}
             activeOpacity={0.85}
             onPress={() => trip && router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}
           >
-            <View style={styles.itineraryPreviewRow}>
-              <View style={styles.itineraryPreviewLeft}>
-                <Icon name="event-note" size={28} color={C.primary} />
-              </View>
-              <View style={styles.itineraryPreviewContent}>
-                <Text style={styles.itineraryPreviewTitle}>
-                  {itineraryItems.length === 0
-                    ? 'Nenhum item no roteiro'
-                    : `${itineraryItems.length} ${itineraryItems.length === 1 ? 'item' : 'itens'} no roteiro`}
-                </Text>
-                {itineraryItems.length > 0 && (
-                  <Text style={styles.itineraryPreviewSub} numberOfLines={1}>
-                    {itineraryItems.slice(0, 2).map(i => i.title).join(' · ')}
-                    {itineraryItems.length > 2 ? ` · +${itineraryItems.length - 2}` : ''}
-                  </Text>
-                )}
-              </View>
-            </View>
+            {(() => {
+              const today = new Date().toISOString().split('T')[0]
+              const upcoming = itineraryItems
+                .filter(i => i.scheduled_date && i.scheduled_date >= today)
+                .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || (a.scheduled_time || '').localeCompare(b.scheduled_time || ''))
+                .slice(0, 3)
+
+              return (
+                <>
+                  {upcoming.length === 0 ? (
+                    <View style={styles.itineraryEmptyState}>
+                      <Icon name="event-available" size={24} color={C.tertiary} />
+                      <Text style={styles.itineraryEmptyText}>Nenhum evento programado</Text>
+                    </View>
+                  ) : (
+                    upcoming.map((item, idx) => {
+                      const conf = ITINERARY_CATEGORY_CONF[item.category || 'free'] ?? ITINERARY_CATEGORY_CONF['free']
+                      const dateLabel = item.scheduled_date
+                        ? new Date(item.scheduled_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                        : null
+                      return (
+                        <View key={item.id} style={[styles.itineraryPreviewItem, { borderLeftColor: conf.color }, idx < upcoming.length - 1 && { marginBottom: 8 }]}>
+                          <View style={styles.itineraryPreviewInner}>
+                            <View style={styles.itineraryPreviewTopRow}>
+                              <View style={[styles.itineraryPreviewIcon, { backgroundColor: conf.color + '18' }]}>
+                                <Icon name={conf.icon as any} size={13} color={conf.color} />
+                              </View>
+                              <Text style={[styles.itineraryPreviewCat, { color: conf.color }]}>{item.category || 'Livre'}</Text>
+                            </View>
+                            <Text style={styles.itineraryPreviewTitle} numberOfLines={1}>{item.title}</Text>
+                            {[dateLabel, item.scheduled_time, item.location].filter(Boolean).length > 0 && (
+                              <Text style={styles.itineraryPreviewMeta} numberOfLines={1}>
+                                {[dateLabel, item.scheduled_time, item.location].filter(Boolean).join('  ·  ')}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      )
+                    })
+                  )}
+                </>
+              )
+            })()}
           </TouchableOpacity>
 
           <View style={styles.flightSectionHeader}>
@@ -845,44 +893,87 @@ export default function TripDetailScreen() {
               <Icon name="add" size={20} color={C.accent} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.sectionCard}
-            onPress={() => trip && router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
-            activeOpacity={0.85}
-          >
-            {expenses.length === 0 ? (
-              <Text style={styles.emptySectionText}>Nenhum gasto registrado</Text>
-            ) : (() => {
-              const total = expenses.reduce((sum, e) => sum + e.amount, 0)
-              const currency = expenses[expenses.length - 1]?.currency || 'BRL'
-              const recent = [...expenses].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3)
-              return (
-                <>
-                  <View style={styles.expensesTotalCard}>
-                    <Text style={styles.expensesTotalCardLabel}>Total gasto</Text>
-                    <Text style={styles.expensesTotalCardValue}>
-                      {currency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                  </View>
-                  <View style={styles.recentExpenses}>
-                    {recent.map((e) => (
-                      <View key={e.id} style={styles.recentExpenseItem}>
-                        <Icon name={(CATEGORY_ICON_NAMES[e.category] || 'payments') as any} size={18} color={C.primary} />
-                        <View style={styles.recentExpenseMiddle}>
-                          <Text style={styles.recentExpenseCategory}>{e.category}</Text>
-                          {e.description ? <Text style={styles.recentExpenseDesc} numberOfLines={1}>{e.description}</Text> : null}
+          {expenses.length === 0 ? (
+            <TouchableOpacity
+              style={styles.expensesEmptyCard}
+              onPress={() => trip && router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
+              activeOpacity={0.85}
+            >
+              <Icon name="account-balance-wallet" size={28} color={C.tertiary} />
+              <Text style={styles.expensesEmptyText}>Nenhum gasto registrado</Text>
+              <Text style={styles.expensesEmptySubtext}>Toque para registrar seus gastos</Text>
+            </TouchableOpacity>
+          ) : (() => {
+            const total = expenses.reduce((sum, e) => sum + e.amount, 0)
+            const currency = expenses[expenses.length - 1]?.currency || 'R$'
+            const recent = [...expenses].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3)
+            const categoryTotals = Object.entries(
+              expenses.reduce((acc, e) => { acc[e.category] = (acc[e.category] || 0) + e.amount; return acc }, {} as Record<string, number>)
+            ).sort((a, b) => b[1] - a[1]).slice(0, 4)
+            const maxCat = categoryTotals[0]?.[1] || 1
+            return (
+              <TouchableOpacity
+                style={styles.expensesCard}
+                onPress={() => trip && router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
+                activeOpacity={0.85}
+              >
+                {/* Bento: total + contagem inline */}
+                <View style={styles.expensesBentoTotal}>
+                  <Text style={styles.expensesBentoTotalLabel}>Total gasto</Text>
+                  <Text style={styles.expensesBentoTotalValue} numberOfLines={1} adjustsFontSizeToFit>
+                    {currency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
+                  <Text style={styles.expensesBentoCountInline}>
+                    {expenses.length} {expenses.length === 1 ? 'lançamento' : 'lançamentos'}
+                  </Text>
+                </View>
+
+                {/* Breakdown por categoria */}
+                <View style={styles.expensesCatSection}>
+                  {categoryTotals.map(([cat, amt]) => {
+                    const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
+                    const pct = (amt / maxCat) * 100
+                    return (
+                      <View key={cat} style={styles.expensesCatRow}>
+                        <View style={styles.expensesCatLeft}>
+                          <Icon name={conf.icon as any} size={12} color={conf.color} />
+                          <Text style={styles.expensesCatLabel} numberOfLines={1}>{cat}</Text>
                         </View>
-                        <Text style={styles.recentExpenseAmount}>
-                          {e.currency} {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <View style={styles.expensesCatBarTrack}>
+                          <View style={[styles.expensesCatBar, { width: `${pct}%` as any, backgroundColor: conf.color }]} />
+                        </View>
+                        <Text style={styles.expensesCatAmt}>
+                          {currency} {amt.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </Text>
                       </View>
-                    ))}
-                  </View>
-                </>
-              )
-            })()}
+                    )
+                  })}
+                </View>
 
-          </TouchableOpacity>
+                <View style={styles.expensesDivider} />
+
+                {/* Últimos gastos */}
+                {recent.map((e, idx) => {
+                  const conf = EXPENSE_CATEGORY_CONF[e.category] ?? EXPENSE_CATEGORY_CONF['Outros']
+                  return (
+                    <View key={e.id} style={[styles.expensesRecentRow, idx < recent.length - 1 && styles.expensesRecentRowBorder]}>
+                      <View style={[styles.expensesRecentIcon, { backgroundColor: conf.color + '18' }]}>
+                        <Icon name={conf.icon as any} size={14} color={conf.color} />
+                      </View>
+                      <View style={styles.expensesRecentMid}>
+                        <Text style={styles.expensesRecentCat}>{e.category}</Text>
+                        {e.description ? <Text style={styles.expensesRecentDesc} numberOfLines={1}>{e.description}</Text> : null}
+                      </View>
+                      <Text style={styles.expensesRecentAmt}>
+                        {e.currency} {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                  )
+                })}
+
+              </TouchableOpacity>
+            )
+          })()}
         </View>
       </ScrollView>
 
@@ -1287,10 +1378,63 @@ const styles = StyleSheet.create({
   recentExpenseCategory: { fontSize: 13, fontWeight: '600', color: C.primary },
   recentExpenseDesc: { fontSize: 11, color: C.tertiary },
   recentExpenseAmount: { fontSize: 13, fontWeight: '600', color: C.primary },
-  itineraryPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  itineraryPreviewLeft: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
-  itineraryPreviewContent: { flex: 1 },
-  itineraryPreviewTitle: { fontSize: 14, fontWeight: '600', color: C.primary, marginBottom: 2 },
-  itineraryPreviewSub: { fontSize: 12, color: C.secondary, marginBottom: 6 },
-  itineraryPreviewAction: { fontSize: 12, color: C.accent, fontWeight: '600' },
+
+  // Expenses redesign
+  expensesEmptyCard: {
+    backgroundColor: C.surface, borderRadius: 16, padding: 24,
+    borderWidth: 0.5, borderColor: C.border,
+    alignItems: 'center', gap: 6, marginBottom: 16,
+  },
+  expensesEmptyText: { fontSize: 14, fontWeight: '600', color: C.secondary, marginTop: 4 },
+  expensesEmptySubtext: { fontSize: 12, color: C.tertiary },
+  expensesCard: {
+    backgroundColor: C.surface, borderRadius: 16, padding: 16,
+    borderWidth: 0.5, borderColor: C.border, marginBottom: 16,
+  },
+  expensesBentoTotal: { backgroundColor: C.surfaceHigh, borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 0.5, borderColor: C.border },
+  expensesBentoTotalLabel: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
+  expensesBentoTotalValue: { fontSize: 22, fontWeight: '800', color: C.primary },
+  expensesBentoCountInline: { fontSize: 12, color: C.tertiary, marginTop: 6 },
+  expensesCatSection: { gap: 8, marginBottom: 14 },
+  expensesCatRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  expensesCatLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 94 },
+  expensesCatLabel: { fontSize: 11, color: C.secondary, flex: 1 },
+  expensesCatBarTrack: { flex: 1, height: 4, backgroundColor: C.surfaceHigh, borderRadius: 2, overflow: 'hidden' },
+  expensesCatBar: { height: 4, borderRadius: 2 },
+  expensesCatAmt: { fontSize: 11, fontWeight: '600', color: C.primary, width: 58, textAlign: 'right' },
+  expensesDivider: { height: 0.5, backgroundColor: C.border, marginBottom: 4 },
+  expensesRecentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  expensesRecentRowBorder: { borderBottomWidth: 0.5, borderBottomColor: C.border },
+  expensesRecentIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  expensesRecentMid: { flex: 1 },
+  expensesRecentCat: { fontSize: 13, fontWeight: '600', color: C.primary },
+  expensesRecentDesc: { fontSize: 11, color: C.tertiary },
+  expensesRecentAmt: { fontSize: 13, fontWeight: '700', color: C.primary },
+
+  itineraryCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, borderWidth: 0.5, borderColor: C.border, marginBottom: 16 },
+  itineraryEmptyState: { alignItems: 'center', gap: 6, paddingVertical: 12 },
+  itineraryEmptyText: { fontSize: 14, fontWeight: '600', color: C.secondary },
+  itineraryEmptySubtext: { fontSize: 12, color: C.tertiary },
+  itineraryBentoRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  itineraryBentoCard: { width: 72, backgroundColor: C.surfaceHigh, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 0.5, borderColor: C.border },
+  itineraryBentoNum: { fontSize: 24, fontWeight: '800', color: C.primary },
+  itineraryBentoLabel: { fontSize: 10, color: C.secondary, fontWeight: '500', marginTop: 1 },
+  itineraryBentoCats: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'flex-end' },
+  itineraryCatDot: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  itineraryDayHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 },
+  itineraryDayLabel: { fontSize: 13, fontWeight: '700', color: C.primary },
+  itineraryDayDate: { fontSize: 11, color: C.tertiary },
+  itineraryDivider: { height: 0.5, backgroundColor: C.border, marginBottom: 10 },
+  itineraryPreviewItem: {
+    backgroundColor: C.surfaceHigh, borderRadius: 14,
+    borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
+    overflow: 'hidden',
+  },
+  itineraryPreviewInner: { padding: 12 },
+  itineraryPreviewTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  itineraryPreviewIcon: { width: 24, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  itineraryPreviewCat: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  itineraryPreviewInfo: { flex: 1 },
+  itineraryPreviewTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginBottom: 3 },
+  itineraryPreviewMeta: { fontSize: 12, color: C.secondary },
 })
