@@ -1,7 +1,7 @@
 import {
-  View, Text, TouchableOpacity, Pressable,
-  StyleSheet, Alert, TextInput, Modal,
-  KeyboardAvoidingView, Platform, ScrollView
+  View, Text, TouchableOpacity,
+  StyleSheet, TextInput,
+  ScrollView
 } from 'react-native'
 import Icon from '../components/Icon'
 import { useState, useCallback } from 'react'
@@ -9,6 +9,10 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import { t, getDeviceLocale } from '../lib/i18n'
+import { showAlert } from '../lib/alert'
+import SheetModal from '../components/SheetModal'
+import DesktopLayout from '../components/DesktopLayout'
+import HScrollable from '../components/HScrollable'
 
 const C = Colors.dark
 
@@ -38,6 +42,11 @@ type Expense = {
   image_url: string | null
 }
 
+type TripBudget = {
+  budget: number | null
+  budget_currency: string | null
+}
+
 function formatExpenseDate(date: string) {
   if (!date) return '--'
   const onlyDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
@@ -53,6 +62,7 @@ function formatExpenseDate(date: string) {
 export default function ExpensesScreen() {
   const { id: tripId, title: tripTitle, openNew } = useLocalSearchParams()
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [tripBudget, setTripBudget] = useState<TripBudget>({ budget: null, budget_currency: null })
   const [modalVisible, setModalVisible] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
@@ -65,6 +75,7 @@ export default function ExpensesScreen() {
 
   useFocusEffect(useCallback(() => {
     loadExpenses()
+    loadTripBudget()
     if (openNew === '1') openNewExpense()
   }, [openNew]))
 
@@ -75,6 +86,15 @@ export default function ExpensesScreen() {
       .eq('trip_id', tripId)
       .order('created_at', { ascending: false })
     if (!error) setExpenses(data || [])
+  }
+
+  async function loadTripBudget() {
+    const { data } = await supabase
+      .from('trips')
+      .select('budget, budget_currency')
+      .eq('id', tripId)
+      .single()
+    if (data) setTripBudget({ budget: data.budget ?? null, budget_currency: data.budget_currency ?? null })
   }
 
   function resetForm() {
@@ -110,7 +130,7 @@ export default function ExpensesScreen() {
 
   async function handleSave() {
     if (!amount || isNaN(Number(amount))) {
-      Alert.alert(t('attention_title'), t('invalid_amount'))
+      showAlert(t('attention_title'), t('invalid_amount'))
       return
     }
     setSaving(true)
@@ -135,17 +155,17 @@ export default function ExpensesScreen() {
       resetForm()
       loadExpenses()
     } else {
-      Alert.alert(t('error_title'), t('save_failed'))
+      showAlert(t('error_title'), t('save_failed'))
     }
   }
 
   async function handleDelete(expenseId: string) {
-    Alert.alert(t('confirm_delete_expense_title'), t('confirm_delete_expense_body'), [
+    showAlert(t('confirm_delete_expense_title'), t('confirm_delete_expense_body'), [
       { text: t('cancel_label'), style: 'cancel' },
       {
         text: t('delete_label'), style: 'destructive',
         onPress: () => {
-          Alert.alert(t('confirm_delete_expense_second_title'), t('confirm_delete_expense_second_body'), [
+          showAlert(t('confirm_delete_expense_second_title'), t('confirm_delete_expense_second_body'), [
             { text: t('cancel_label'), style: 'cancel' },
             {
               text: t('delete_label'), style: 'destructive',
@@ -163,6 +183,11 @@ export default function ExpensesScreen() {
   }
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0)
+  const budgetCur = tripBudget.budget_currency || 'R$'
+  const budgetAmount = tripBudget.budget
+  const budgetPct = budgetAmount && budgetAmount > 0 ? Math.min((total / budgetAmount) * 100, 100) : 0
+  const budgetBarColor = budgetPct >= 90 ? C.error : budgetPct >= 75 ? '#FF9500' : C.success
+  const budgetBalance = budgetAmount != null ? budgetAmount - total : null
 
   const categoryTotals = Object.entries(
     expenses.reduce((acc, e) => { acc[e.category] = (acc[e.category] || 0) + e.amount; return acc }, {} as Record<string, number>)
@@ -170,11 +195,12 @@ export default function ExpensesScreen() {
   const maxCat = categoryTotals[0]?.[1] || 1
 
   return (
+    <DesktopLayout>
     <View style={styles.container}>
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Icon name="arrow-back" size={22} color={C.primary} />
+          <Icon name="arrow-back" size={22} color={C.icon} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Gastos</Text>
@@ -184,6 +210,29 @@ export default function ExpensesScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* ── Card de orçamento (só aparece se trip tem budget) ── */}
+        {budgetAmount != null && (
+          <View style={styles.budgetCard}>
+            <View style={styles.budgetCardHeader}>
+              <Text style={styles.budgetCardLabel}>Orçamento</Text>
+              <Text style={styles.budgetCardTotal}>
+                {budgetCur} {budgetAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </View>
+            <View style={styles.budgetTrack}>
+              <View style={[styles.budgetBar, { width: `${budgetPct}%` as any, backgroundColor: budgetBarColor }]} />
+            </View>
+            <View style={styles.budgetFooter}>
+              <Text style={styles.budgetFooterLabel}>
+                Gasto: {budgetCur} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+              <Text style={[styles.budgetFooterBalance, { color: (budgetBalance ?? 0) >= 0 ? C.success : C.error }]}>
+                {(budgetBalance ?? 0) >= 0 ? 'Saldo: ' : 'Excesso: '}{budgetCur} {Math.abs(budgetBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* ── Bento: total + lançamentos ── */}
         <View style={styles.bentoTotal}>
           <Text style={styles.bentoTotalLabel}>Total gasto</Text>
@@ -245,90 +294,81 @@ export default function ExpensesScreen() {
           </View>
         )}
       </ScrollView>
-
+?
       {/* ── FAB ── */}
       <TouchableOpacity style={styles.fab} onPress={openNewExpense} activeOpacity={0.85}>
         <Icon name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
       {/* ── Modal ── */}
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseExpenseModal} />
-          <View style={styles.sheetContainer}>
-            <View style={styles.modalHandle} />
-            <View style={styles.sheetHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>{editingExpenseId ? 'Editar gasto' : 'Novo gasto'}</Text>
-                <Text style={styles.modalSubtitle}>Registre os detalhes do gasto</Text>
-              </View>
-              {editingExpenseId ? (
-                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={() => handleDelete(editingExpenseId)}>
-                  <Icon name="delete-outline" size={20} color={C.error} />
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseExpenseModal}>
-                <Icon name="close" size={20} color={C.secondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              {/* Valor */}
-              <Text style={styles.sheetLabel}>Valor *</Text>
-              <View style={styles.sheetInputRow}>
-                <Icon name="payments" size={20} color={C.secondary} />
-                <TextInput
-                  style={styles.sheetInput}
-                  placeholder="0,00"
-                  placeholderTextColor={C.tertiary}
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-
-              {/* Categoria */}
-              <Text style={styles.sheetLabel}>Categoria</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryChipsRow}>
-                {CATEGORIES.map(cat => {
-                  const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
-                  const active = category === cat
-                  return (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[styles.categoryChip, active && { borderColor: conf.color, backgroundColor: conf.color + '14' }]}
-                      onPress={() => setCategory(cat)}
-                      activeOpacity={0.8}
-                    >
-                      <Icon name={conf.icon as any} size={14} color={active ? conf.color : C.secondary} />
-                      <Text style={[styles.categoryChipText, active && { color: conf.color, fontWeight: '700' }]}>{cat}</Text>
-                    </TouchableOpacity>
-                  )
-                })}
-              </ScrollView>
-
-              {/* Descrição */}
-              <Text style={styles.sheetLabel}>Descrição</Text>
-              <View style={styles.sheetInputRow}>
-                <Icon name="notes" size={20} color={C.secondary} />
-                <TextInput
-                  style={styles.sheetInput}
-                  placeholder="Ex: Almoço no restaurante"
-                  placeholderTextColor={C.tertiary}
-                  value={description}
-                  onChangeText={setDescription}
-                />
-              </View>
-
-              {/* Salvar */}
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} disabled={saving}>
-                <Text style={styles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar gasto'}</Text>
-              </TouchableOpacity>
-            </ScrollView>
+      <SheetModal
+        visible={modalVisible}
+        onClose={handleCloseExpenseModal}
+        title={editingExpenseId ? 'Editar gasto' : 'Novo gasto'}
+        subtitle="Registre os detalhes do gasto"
+      >
+        {editingExpenseId ? (
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={styles.sheetDeleteBtn} onPress={() => handleDelete(editingExpenseId)}>
+              <Icon name="delete-outline" size={20} color={C.error} />
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        ) : null}
+
+        {/* Valor */}
+        <Text style={styles.sheetLabel}>Valor *</Text>
+        <View style={styles.sheetInputRow}>
+          <Icon name="payments" size={20} color={C.secondary} />
+          <TextInput
+            style={styles.sheetInput}
+            placeholder="0,00"
+            placeholderTextColor={C.tertiary}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="decimal-pad"
+          />
+        </View>
+
+        {/* Categoria */}
+        <Text style={styles.sheetLabel}>Categoria</Text>
+        <HScrollable contentContainerStyle={styles.categoryChipsRow}>
+          {CATEGORIES.map(cat => {
+            const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
+            const active = category === cat
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.categoryChip, active && { borderColor: conf.color, backgroundColor: conf.color + '14' }]}
+                onPress={() => setCategory(cat)}
+                activeOpacity={0.8}
+              >
+                <Icon name={conf.icon as any} size={14} color={active ? conf.color : C.secondary} />
+                <Text style={[styles.categoryChipText, active && { color: conf.color, fontWeight: '700' }]}>{cat}</Text>
+              </TouchableOpacity>
+            )
+          })}
+        </HScrollable>
+
+        {/* Descrição */}
+        <Text style={styles.sheetLabel}>Descrição</Text>
+        <View style={styles.sheetInputRow}>
+          <Icon name="notes" size={20} color={C.secondary} />
+          <TextInput
+            style={styles.sheetInput}
+            placeholder="Ex: Almoço no restaurante"
+            placeholderTextColor={C.tertiary}
+            value={description}
+            onChangeText={setDescription}
+          />
+        </View>
+
+        {/* Salvar */}
+        <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} disabled={saving}>
+          <Text style={styles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar gasto'}</Text>
+        </TouchableOpacity>
+      </SheetModal>
     </View>
+    </DesktopLayout>
   )
 }
 
@@ -345,6 +385,17 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: C.primary },
   tripName: { fontSize: 12, color: C.secondary, marginTop: 1, maxWidth: 180 },
+
+  // Budget card
+  budgetCard: { marginHorizontal: 20, marginTop: 16, backgroundColor: C.surface, borderRadius: 14, padding: 16, borderWidth: 0.5, borderColor: C.border },
+  budgetCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  budgetCardLabel: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 0.8 },
+  budgetCardTotal: { fontSize: 16, fontWeight: '800', color: C.primary },
+  budgetTrack: { height: 8, backgroundColor: C.surfaceHigh, borderRadius: 6, overflow: 'hidden', marginBottom: 10 },
+  budgetBar: { height: 8, borderRadius: 6 },
+  budgetFooter: { flexDirection: 'row', justifyContent: 'space-between' },
+  budgetFooterLabel: { fontSize: 12, color: C.secondary },
+  budgetFooterBalance: { fontSize: 12, fontWeight: '700' },
 
   // Bento summary
   bentoRow: { flexDirection: 'row', gap: 10, marginHorizontal: 20, marginTop: 16, marginBottom: 4 },
@@ -399,7 +450,7 @@ const styles = StyleSheet.create({
   // FAB
   fab: {
     position: 'absolute', bottom: 36, right: 24,
-    width: 58, height: 58, borderRadius: 18, backgroundColor: C.primary,
+    width: 58, height: 58, borderRadius: 18, backgroundColor: C.buttonPrimary,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6,
   },
@@ -409,7 +460,8 @@ const styles = StyleSheet.create({
   sheetContainer: { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '92%' },
   modalHandle: { width: 48, height: 6, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.1)', alignSelf: 'center', marginBottom: 24 },
   sheetHeaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4 },
-  sheetDeleteBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF0EF', marginRight: 16 },
+  sheetActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
+  sheetDeleteBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF0EF' },
   sheetCloseBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh },
   sheetScroll: { paddingHorizontal: 24, paddingBottom: 34 },
   modalTitle: { fontSize: 22, fontWeight: '800', color: C.primary, marginBottom: 2 },
@@ -430,9 +482,9 @@ const styles = StyleSheet.create({
 
   // Buttons
   primaryBtn: {
-    backgroundColor: C.primary, borderRadius: 16, paddingVertical: 18,
+    backgroundColor: C.buttonPrimary, borderRadius: 16, paddingVertical: 18,
     alignItems: 'center', marginTop: 24,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
+    shadowColor: C.buttonPrimary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
   },
   primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 })

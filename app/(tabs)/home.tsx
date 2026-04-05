@@ -1,6 +1,6 @@
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, Image, Animated
+  StyleSheet, Image, Animated, Platform
 } from 'react-native'
 import Icon from '../../components/Icon'
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -8,6 +8,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { Colors } from '../../constants/Colors'
+import DesktopLayout from '../../components/DesktopLayout'
+import { useResponsive } from '../../hooks/useResponsive'
 
 const C = Colors.dark
 const MS_PER_DAY = 1000 * 60 * 60 * 24
@@ -20,6 +22,8 @@ type Trip = {
   end_date: string | null
   status: string
   cover_image: string | null
+  budget: number | null
+  budget_currency: string | null
 }
 
 type FlightSummary = {
@@ -33,6 +37,7 @@ type TripWithMeta = Trip & {
   daysRemaining: number | null
   isCompleted: boolean
   lastFlightTime: number | null
+  expenseTotal: number
 }
 
 export default function HomeScreen() {
@@ -57,7 +62,8 @@ export default function HomeScreen() {
           || user.email?.split('@')[0]
           || 'viajante'
         setUserName(displayName)
-        setAvatarUrl((user.user_metadata?.avatar_url as string | undefined) || null)
+        const rawAvatar = (user.user_metadata?.avatar_url as string | undefined) || null
+        setAvatarUrl(rawAvatar?.startsWith('https://') ? rawAvatar : null)
       }
       const { data, error } = await supabase
         .from('trips')
@@ -68,6 +74,7 @@ export default function HomeScreen() {
       const tripsData = (data || []) as Trip[]
       const tripIds = tripsData.map((trip) => trip.id)
       let flightsData: FlightSummary[] = []
+      const expenseTotals = new Map<string, number>()
 
       if (tripIds.length) {
         const { data: flights, error: flightsError } = await supabase
@@ -76,6 +83,17 @@ export default function HomeScreen() {
           .in('trip_id', tripIds)
 
         if (!flightsError) flightsData = (flights || []) as FlightSummary[]
+
+        const { data: expensesData } = await supabase
+          .from('expenses')
+          .select('trip_id, amount')
+          .in('trip_id', tripIds)
+
+        if (expensesData) {
+          expensesData.forEach((e: { trip_id: string; amount: number }) => {
+            expenseTotals.set(e.trip_id, (expenseTotals.get(e.trip_id) || 0) + e.amount)
+          })
+        }
       }
 
       const now = new Date()
@@ -98,6 +116,7 @@ export default function HomeScreen() {
           daysRemaining,
           isCompleted,
           lastFlightTime,
+          expenseTotal: expenseTotals.get(trip.id) || 0,
         }
       })
 
@@ -233,8 +252,8 @@ export default function HomeScreen() {
     useEffect(() => {
       const animation = Animated.loop(
         Animated.sequence([
-          Animated.timing(shimmer, { toValue: 1, duration: 800, useNativeDriver: true }),
-          Animated.timing(shimmer, { toValue: 0, duration: 800, useNativeDriver: true }),
+          Animated.timing(shimmer, { toValue: 1, duration: 800, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(shimmer, { toValue: 0, duration: 800, useNativeDriver: Platform.OS !== 'web' }),
         ])
       )
       animation.start()
@@ -264,36 +283,59 @@ export default function HomeScreen() {
 
   function renderTrip({ item, index }: { item: TripWithMeta, index: number }) {
     const nextItem = visibleTrips[index + 1]
-    const daysBetween = getDaysBetween(item, nextItem)
+    const daysBetween = isDesktop ? null : getDaysBetween(item, nextItem)
     return (
-      <View>
+      <View style={isDesktop && gridColumns > 1 ? { flex: 1, maxWidth: `${100 / gridColumns}%` as any } : undefined}>
         <TouchableOpacity
-          style={styles.card}
-          activeOpacity={0.85}
+          style={[styles.card, isDesktop && styles.cardDesktop]}
+          activeOpacity={0.92}
           onPress={() => router.push({ pathname: '/trip-detail', params: { id: item.id } })}
         >
-          {item.cover_image ? (
-            <Image source={{ uri: item.cover_image }} style={styles.cardImg} resizeMode="cover" />
-          ) : (
-            <View style={styles.cardImgPlaceholder}>
-              <Icon name="flight" size={40} color={C.tertiary} />
-            </View>
-          )}
-          <View style={styles.cardOverlay}>
-            <View style={[styles.badge, { backgroundColor: 'rgba(255, 255, 255, 0.5)' }]}>
-              <Text style={[styles.badgeText, { color: getBadgeColor(item) }]}>
-                {getBadgeText(item)}
-              </Text>
+          {/* Imagem com aspect ratio fixo */}
+          <View style={[styles.cardImgWrap, isDesktop && styles.cardImgWrapDesktop]}>
+            {item.cover_image ? (
+              <Image source={{ uri: item.cover_image }} style={styles.cardImgFill} resizeMode="cover" />
+            ) : (
+              <View style={styles.cardImgPlaceholderInner}>
+                <Icon name="flight" size={isDesktop ? 36 : 40} color={C.tertiary} />
+              </View>
+            )}
+            <View style={styles.cardOverlay}>
+              <View style={[styles.badge, { backgroundColor: 'rgba(255,255,255,0.85)' }]}>
+                <Text style={[styles.badgeText, { color: getBadgeColor(item) }]}>
+                  {getBadgeText(item)}
+                </Text>
+              </View>
             </View>
           </View>
-          <View style={styles.cardBody}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
+          <View style={[styles.cardBody, isDesktop && styles.cardBodyDesktop]}>
+            <Text style={[styles.cardTitle, isDesktop && styles.cardTitleDesktop]}>{item.title}</Text>
             <Text style={styles.cardDest}>{item.destination}</Text>
             {(item.start_date || item.end_date) && (
               <View style={styles.cardDateRow}>
                 <Text style={styles.cardDate}>{formatDate(item.start_date)}</Text>
                 <Icon name="arrow-forward" size={12} color={C.tertiary} />
                 <Text style={styles.cardDate}>{formatDate(item.end_date)}</Text>
+              </View>
+            )}
+            {item.budget != null && (
+              <View style={styles.cardBudgetRow}>
+                <View style={styles.cardBudgetTrack}>
+                  <View style={[
+                    styles.cardBudgetBar,
+                    {
+                      width: `${Math.min((item.expenseTotal / item.budget) * 100, 100)}%` as any,
+                      backgroundColor: item.expenseTotal / item.budget >= 0.9
+                        ? C.error
+                        : item.expenseTotal / item.budget >= 0.75
+                        ? '#FF9500'
+                        : C.success,
+                    }
+                  ]} />
+                </View>
+                <Text style={styles.cardBudgetText}>
+                  {item.budget_currency || 'R$'} {item.expenseTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} / {item.budget.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </Text>
               </View>
             )}
           </View>
@@ -310,21 +352,39 @@ export default function HomeScreen() {
   }
 
 
+  const { isDesktop, gridColumns } = useResponsive()
+
   return (
+    <DesktopLayout>
     <SafeAreaView style={styles.container}>
-      <View style={[styles.header, { paddingTop: 24 }]}>
-        <View>
-          <Text style={styles.headerTitle}>Olá, {userName}</Text>
+      <View style={[styles.header, { paddingTop: isDesktop ? 32 : 24 }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.headerTitle, isDesktop && styles.headerTitleDesktop]}>
+            {isDesktop ? 'Minhas Viagens' : `Olá, ${userName}`}
+          </Text>
         </View>
-        <TouchableOpacity style={styles.avatar} onPress={() => router.push('/profile')}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-          ) : (
-            <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-          )}
-        </TouchableOpacity>
+        {!isDesktop && (
+          <>
+            <TouchableOpacity style={styles.statsBtn} onPress={() => router.push('/stats')}>
+              <Icon name="bar-chart" size={22} color={C.icon} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.avatar} onPress={() => router.push('/profile')}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
+        {isDesktop && (
+          <TouchableOpacity style={styles.desktopNewBtn} onPress={() => router.push('/new-trip')} activeOpacity={0.85}>
+            <Icon name="add" size={18} color="#fff" />
+            <Text style={styles.desktopNewBtnText}>Nova viagem</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      <View style={styles.segment}>
+      <View style={[styles.segment, isDesktop && styles.segmentDesktop]}>
         <TouchableOpacity
           style={[styles.segmentItem, activeTab === 'open' && styles.segmentItemActive]}
           onPress={() => setActiveTab('open')}
@@ -348,7 +408,12 @@ export default function HomeScreen() {
         data={showLoading ? [] : visibleTrips}
         keyExtractor={(item) => item.id}
         renderItem={renderTrip}
-        contentContainerStyle={[styles.list, { paddingBottom: 100 + insets.bottom }]}
+        {...(isDesktop && gridColumns > 1 ? {
+          numColumns: gridColumns,
+          key: `grid-${gridColumns}`,
+          columnWrapperStyle: { gap: 16 },
+        } : {})}
+        contentContainerStyle={[styles.list, isDesktop && styles.listDesktop, { paddingBottom: 100 + insets.bottom }]}
         ListEmptyComponent={
           showLoading ? (
             <SkeletonList />
@@ -365,43 +430,60 @@ export default function HomeScreen() {
           )
         }
       />
-      <TouchableOpacity
-        style={[styles.fab, { bottom: 16 + insets.bottom }]}
-        onPress={() => router.push('/new-trip')}
-        activeOpacity={0.85}
-      >
-        <Icon name="add" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      {!isDesktop && (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: 16 + insets.bottom }]}
+          onPress={() => router.push('/new-trip')}
+          activeOpacity={0.85}
+        >
+          <Icon name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
+    </DesktopLayout>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, gap: 10 },
   headerTitle: { fontSize: 24, fontWeight: '700', color: C.primary },
-  avatar: { width: 76, height: 76, borderRadius: 38, backgroundColor: C.surface, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  avatarImage: { width: 76, height: 76, borderRadius: 38 },
-  avatarText: { color: C.accent, fontSize: 28, fontWeight: '600' },
+  headerTitleDesktop: { fontSize: 28, fontWeight: '800' },
+  desktopNewBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.buttonPrimary, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
+  desktopNewBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  statsBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surface, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.surface, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  avatarImage: { width: 42, height: 42, borderRadius: 21 },
+  avatarText: { color: C.accent, fontSize: 18, fontWeight: '600' },
   segment: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 10, backgroundColor: C.surface, borderRadius: 14, borderWidth: 0.5, borderColor: C.border, padding: 4 },
   segmentItem: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+  segmentDesktop: { maxWidth: 300 },
   segmentItemActive: { backgroundColor: C.surfaceHigh },
   segmentText: { fontSize: 12, color: C.tertiary, fontWeight: '600' },
   segmentTextActive: { color: C.primary },
   list: { padding: 20, paddingTop: 10 },
+  listDesktop: { paddingHorizontal: 24, paddingTop: 16 },
   skeletonList: { paddingTop: 6 },
   card: { backgroundColor: C.surface, borderRadius: 16, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, overflow: 'hidden' },
-  cardImg: { width: '100%', height: 180 },
-  cardImgPlaceholder: { width: '100%', height: 140, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' },
-  cardImgIcon: { color: C.tertiary },
+  cardDesktop: { borderRadius: 14, borderWidth: 0, marginBottom: 20 },
+  cardImgWrap: { width: '100%', aspectRatio: 16 / 10, backgroundColor: C.surfaceHigh, position: 'relative', overflow: 'hidden' },
+  cardImgWrapDesktop: { aspectRatio: 4 / 3, borderRadius: 14 },
+  cardImgFill: { width: '100%', height: '100%' },
+  cardImgPlaceholderInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   cardOverlay: { position: 'absolute', top: 12, right: 12 },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 10, fontWeight: '600' },
   cardBody: { padding: 14 },
+  cardBodyDesktop: { paddingHorizontal: 4, paddingTop: 10, paddingBottom: 4 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: C.primary, marginBottom: 4 },
+  cardTitleDesktop: { fontSize: 15 },
   cardDest: { fontSize: 13, color: C.secondary, marginBottom: 4 },
   cardDate: { fontSize: 12, color: C.tertiary },
   cardDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardBudgetRow: { marginTop: 8, gap: 4 },
+  cardBudgetTrack: { height: 4, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden' },
+  cardBudgetBar: { height: 4, borderRadius: 3 },
+  cardBudgetText: { fontSize: 11, color: C.tertiary },
   skeletonImage: { width: '100%', height: 140, backgroundColor: C.surfaceHigh },
   skeletonLine: { height: 10, borderRadius: 6, backgroundColor: C.surfaceHigh, marginBottom: 8 },
   skeletonTitle: { width: '60%', height: 12 },
@@ -421,7 +503,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: C.primary,
+    backgroundColor: C.buttonPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },

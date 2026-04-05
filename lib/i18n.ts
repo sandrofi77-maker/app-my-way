@@ -45,6 +45,9 @@ type LocaleStrings = {
   delete_itinerary_failed: string
   invalid_itinerary_date: string
   invalid_itinerary_time: string
+  reset_password_title: string
+  reset_password_body: string
+  reset_password_empty: string
 }
 
 const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
@@ -95,6 +98,9 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     delete_itinerary_failed: 'Não foi possível excluir o item do roteiro.',
     invalid_itinerary_date: 'Data do item inválida. Use o formato local do dispositivo.',
     invalid_itinerary_time: 'Horário do item inválido. Use HH:mm.',
+    reset_password_title: 'Email enviado',
+    reset_password_body: 'Verifique sua caixa de entrada para redefinir a senha.',
+    reset_password_empty: 'Digite seu email para recuperar a senha.',
   },
   en: {
     permission_needed_title: 'Permission required',
@@ -143,6 +149,9 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     delete_itinerary_failed: 'Unable to delete the itinerary item.',
     invalid_itinerary_date: 'Invalid item date. Use your device local format.',
     invalid_itinerary_time: 'Invalid item time. Use HH:mm.',
+    reset_password_title: 'Email sent',
+    reset_password_body: 'Check your inbox to reset your password.',
+    reset_password_empty: 'Enter your email to recover your password.',
   },
 }
 

@@ -1,7 +1,6 @@
 ﻿import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform,
-  ScrollView, ActivityIndicator, Alert
+  StyleSheet, ScrollView, ActivityIndicator
 } from 'react-native'
 import { useState } from 'react'
 import { router } from 'expo-router'
@@ -11,8 +10,12 @@ import ImagePickerComponent from '../components/ImagePicker'
 import { applyDateMask, getLocalDatePlaceholder, toISODateOrNull } from '../lib/date-locale'
 import { t } from '../lib/i18n'
 import Icon from '../components/Icon'
+import { showAlert } from '../lib/alert'
+import KeyboardView from '../components/KeyboardView'
+import DesktopLayout from '../components/DesktopLayout'
 
 const C = Colors.dark
+const CURRENCIES = ['R$', 'USD', 'EUR', 'GBP']
 
 export default function NewTripScreen() {
   const [title, setTitle] = useState('')
@@ -20,12 +23,15 @@ export default function NewTripScreen() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [imageUri, setImageUri] = useState<string | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
+  const [budget, setBudget] = useState('')
+  const [budgetCurrency, setBudgetCurrency] = useState('R$')
   const [loading, setLoading] = useState(false)
   const datePlaceholder = getLocalDatePlaceholder()
 
   async function handleCreate() {
     if (!title.trim() || !destination.trim()) {
-      Alert.alert(t('attention_title'), t('required_trip_fields'))
+      showAlert(t('attention_title'), t('required_trip_fields'))
       return
     }
 
@@ -33,12 +39,12 @@ export default function NewTripScreen() {
     const endDateISO = toISODateOrNull(endDate)
 
     if (startDate.trim() && !startDateISO) {
-      Alert.alert(t('attention_title'), t('invalid_departure_date'))
+      showAlert(t('attention_title'), t('invalid_departure_date'))
       return
     }
 
     if (endDate.trim() && !endDateISO) {
-      Alert.alert(t('attention_title'), t('invalid_return_date'))
+      showAlert(t('attention_title'), t('invalid_return_date'))
       return
     }
 
@@ -55,27 +61,30 @@ export default function NewTripScreen() {
         cover_image: imageUri || null,
         owner_id: user.id,
         status: 'planning',
+        budget: budget.trim() ? Number(budget.replace(',', '.')) : null,
+        budget_currency: budgetCurrency,
       })
 
       if (error) throw error
       router.back()
     } catch (err: any) {
-      Alert.alert(t('error_title'), err.message)
+      showAlert(t('error_title'), err.message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <DesktopLayout>
+    <KeyboardView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Icon name="arrow-back" size={22} color={C.accent} />
+          <Icon name="arrow-back" size={22} color={C.icon} />
         </TouchableOpacity>
         <Text style={styles.pageTitle}>Nova viagem</Text>
 
         <Text style={styles.label}>Foto de capa (opcional)</Text>
-        <ImagePickerComponent imageUri={imageUri} onImageSelected={setImageUri} />
+        <ImagePickerComponent imageUri={imageUri} onImageSelected={setImageUri} uploadFolder="covers" onUploadingChange={setImageUploading} />
 
         <Text style={styles.label}>Nome da viagem *</Text>
         <TextInput
@@ -115,23 +124,55 @@ export default function NewTripScreen() {
           keyboardType="numeric"
         />
 
-        <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleCreate} disabled={loading}>
+        <Text style={styles.label}>Orçamento total (opcional)</Text>
+        <View style={styles.budgetRow}>
+          <View style={styles.currencyScroll}>
+            {CURRENCIES.map(cur => (
+              <TouchableOpacity
+                key={cur}
+                style={[styles.currencyChip, budgetCurrency === cur && styles.currencyChipActive]}
+                onPress={() => setBudgetCurrency(cur)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.currencyChipText, budgetCurrency === cur && styles.currencyChipTextActive]}>{cur}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TextInput
+            style={[styles.input, styles.budgetInput]}
+            placeholder="0,00"
+            placeholderTextColor={C.tertiary}
+            value={budget}
+            onChangeText={setBudget}
+            keyboardType="decimal-pad"
+          />
+        </View>
+
+        <TouchableOpacity style={[styles.button, (loading || imageUploading) && styles.buttonDisabled]} onPress={handleCreate} disabled={loading || imageUploading}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Criar viagem</Text>}
         </TouchableOpacity>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardView>
+    </DesktopLayout>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
-  scroll: { padding: 24, paddingTop: 60 },
+  scroll: { padding: 24, paddingTop: 60, maxWidth: 600, width: '100%', alignSelf: 'center' as any },
   back: { marginBottom: 20 },
   backText: { color: C.accent, fontSize: 14 },
   pageTitle: { fontSize: 26, fontWeight: '700', color: C.primary, marginBottom: 20 },
   label: { fontSize: 13, color: C.secondary, marginBottom: 6, marginTop: 14 },
   input: { backgroundColor: C.surface, borderWidth: 0.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: C.primary },
-  button: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 32, marginBottom: 40 },
+  button: { backgroundColor: C.buttonPrimary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 32, marginBottom: 40 },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  budgetRow: { gap: 8 },
+  currencyScroll: { flexDirection: 'row', gap: 8 },
+  currencyChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
+  currencyChipActive: { borderColor: C.primary, backgroundColor: C.primary },
+  currencyChipText: { fontSize: 13, fontWeight: '600', color: C.secondary },
+  currencyChipTextActive: { color: '#fff' },
+  budgetInput: { marginTop: 0 },
 })
