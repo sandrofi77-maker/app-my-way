@@ -1,7 +1,6 @@
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, KeyboardAvoidingView,
-  Platform, ActivityIndicator, Alert
+  StyleSheet, ScrollView, ActivityIndicator
 } from 'react-native'
 import { useCallback, useState } from 'react'
 import { useFocusEffect, router } from 'expo-router'
@@ -10,6 +9,9 @@ import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
 import { t } from '../lib/i18n'
 import Icon from '../components/Icon'
+import { showAlert } from '../lib/alert'
+import KeyboardView from '../components/KeyboardView'
+import DesktopLayout from '../components/DesktopLayout'
 
 const C = Colors.dark
 
@@ -17,6 +19,7 @@ export default function ProfileScreen() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [avatarUri, setAvatarUri] = useState<string | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -31,7 +34,9 @@ export default function ProfileScreen() {
       if (user) {
         setEmail(user.email || '')
         setName((user.user_metadata?.full_name as string | undefined) || '')
-        setAvatarUri((user.user_metadata?.avatar_url as string | undefined) || null)
+        const rawAvatar = (user.user_metadata?.avatar_url as string | undefined) || null
+        // Ignora URIs locais que nao funcionam na web
+        setAvatarUri(rawAvatar?.startsWith('https://') ? rawAvatar : null)
       }
     } finally {
       setLoading(false)
@@ -50,9 +55,9 @@ export default function ProfileScreen() {
         }
       })
       if (error) throw error
-      Alert.alert('Perfil atualizado', 'Suas informacoes foram salvas.')
+      showAlert('Perfil atualizado', 'Suas informacoes foram salvas.')
     } catch (err: any) {
-      Alert.alert(t('error_title'), err?.message || t('generic_error'))
+      showAlert(t('error_title'), err?.message || t('generic_error'))
     } finally {
       setSaving(false)
     }
@@ -64,10 +69,11 @@ export default function ProfileScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <DesktopLayout>
+    <KeyboardView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-          <Icon name="arrow-back" size={22} color={C.accent} />
+          <Icon name="arrow-back" size={22} color={C.icon} />
         </TouchableOpacity>
 
         <Text style={styles.title}>Meu perfil</Text>
@@ -82,6 +88,8 @@ export default function ProfileScreen() {
               onImageSelected={setAvatarUri}
               aspect={[1, 1]}
               allowsEditing
+              uploadFolder="avatars"
+              onUploadingChange={setAvatarUploading}
             />
 
             <Text style={styles.label}>Nome de exibicao</Text>
@@ -99,9 +107,9 @@ export default function ProfileScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.saveButton, saving && styles.buttonDisabled]}
+              style={[styles.saveButton, (saving || avatarUploading) && styles.buttonDisabled]}
               onPress={handleSave}
-              disabled={saving}
+              disabled={saving || avatarUploading}
             >
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Salvar</Text>}
             </TouchableOpacity>
@@ -112,7 +120,8 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.9}>
         <Text style={styles.logoutText}>Sair do aplicativo</Text>
       </TouchableOpacity>
-    </KeyboardAvoidingView>
+    </KeyboardView>
+    </DesktopLayout>
   )
 }
 
@@ -143,7 +152,7 @@ const styles = StyleSheet.create({
   },
   readOnlyText: { color: C.primary, fontSize: 15 },
   saveButton: {
-    backgroundColor: C.primary,
+    backgroundColor: C.buttonPrimary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

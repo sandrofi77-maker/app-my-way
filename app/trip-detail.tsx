@@ -1,8 +1,8 @@
 ﻿import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Image, Alert, Modal,
-  TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Pressable, Dimensions
+  StyleSheet, Image, Modal,
+  TextInput, ActivityIndicator, Pressable,
+  useWindowDimensions
 } from 'react-native'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -12,9 +12,15 @@ import { t, getDeviceLocale } from '../lib/i18n'
 import { applyDateMask, applyDateTimeMask, applyTimeMask, formatDateForInput, formatDateTimeForInput, getLocalDatePlaceholder, getLocalDateTimePlaceholder, getLocalTimePlaceholder, toISODateOrNull, toISODateTimeOrNull, toTimeOrNull } from '../lib/date-locale'
 import ImagePickerComponent from '../components/ImagePicker'
 import Icon from '../components/Icon'
+import { showAlert } from '../lib/alert'
+import KeyboardView from '../components/KeyboardView'
+import SheetModal from '../components/SheetModal'
+import { shareAsText, shareAsPDF } from '../lib/share-trip'
+import DesktopLayout from '../components/DesktopLayout'
+import HScrollable from '../components/HScrollable'
+import { useResponsive } from '../hooks/useResponsive'
 
 const C = Colors.dark
-const CARD_WIDTH = Dimensions.get('window').width - 40
 
 type Trip = {
   id: string
@@ -24,6 +30,8 @@ type Trip = {
   end_date: string
   status: string
   cover_image: string | null
+  budget: number | null
+  budget_currency: string | null
 }
 
 type Flight = {
@@ -186,6 +194,10 @@ function formatDateTime(value?: string | null) {
 }
 
 export default function TripDetailScreen() {
+  const { width: windowWidth } = useWindowDimensions()
+  const { isDesktop } = useResponsive()
+  // Desktop: cards compactos lado a lado (max 340px); Mobile: full-width paginado
+  const CARD_WIDTH = isDesktop ? Math.min(340, (windowWidth - 300) / 2) : windowWidth - 40
   const { id } = useLocalSearchParams()
   const tripId = String(id || '')
 
@@ -222,9 +234,11 @@ export default function TripDetailScreen() {
   const [accommodationCheckOut, setAccommodationCheckOut] = useState('')
   const [accommodationDescription, setAccommodationDescription] = useState('')
   const [accommodationImageUri, setAccommodationImageUri] = useState<string | null>(null)
+  const [accomImageUploading, setAccomImageUploading] = useState(false)
 
   const [itineraryItems, setItineraryItems] = useState<ItineraryItem[]>([])
   const [tripMenuVisible, setTripMenuVisible] = useState(false)
+  const [shareMenuVisible, setShareMenuVisible] = useState(false)
   const [activeFlightIndex, setActiveFlightIndex] = useState(0)
   const [activeAccomIndex, setActiveAccomIndex] = useState(0)
 
@@ -325,7 +339,7 @@ export default function TripDetailScreen() {
 
   async function handleSaveFlight() {
     if (!airline.trim() || !flightNumber.trim() || !departureAirport.trim() || !arrivalAirport.trim() || !departureDatetime.trim()) {
-      Alert.alert(t('attention_title'), t('required_flight_fields'))
+      showAlert(t('attention_title'), t('required_flight_fields'))
       return
     }
 
@@ -333,12 +347,12 @@ export default function TripDetailScreen() {
     const arrivalISO = toISODateTimeOrNull(arrivalDatetime)
 
     if (!departureISO) {
-      Alert.alert(t('attention_title'), t('invalid_departure_datetime'))
+      showAlert(t('attention_title'), t('invalid_departure_datetime'))
       return
     }
 
     if (arrivalDatetime.trim() && !arrivalISO) {
-      Alert.alert(t('attention_title'), t('invalid_arrival_datetime'))
+      showAlert(t('attention_title'), t('invalid_arrival_datetime'))
       return
     }
 
@@ -370,7 +384,7 @@ export default function TripDetailScreen() {
       resetFlightForm()
       loadFlights()
     } catch (err: any) {
-      Alert.alert(t('error_title'), err?.message || t('save_flight_failed'))
+      showAlert(t('error_title'), err?.message || t('save_flight_failed'))
     } finally {
       setSavingFlight(false)
     }
@@ -379,7 +393,7 @@ export default function TripDetailScreen() {
   async function handleDeleteFlight() {
     if (!editingFlightId) return
 
-    Alert.alert(t('confirm_delete_flight_title'), t('confirm_delete_flight_body'), [
+    showAlert(t('confirm_delete_flight_title'), t('confirm_delete_flight_body'), [
       { text: t('cancel_label'), style: 'cancel' },
       {
         text: t('delete_label'),
@@ -393,7 +407,7 @@ export default function TripDetailScreen() {
             resetFlightForm()
             loadFlights()
           } catch (err: any) {
-            Alert.alert(t('error_title'), err?.message || t('delete_flight_failed'))
+            showAlert(t('error_title'), err?.message || t('delete_flight_failed'))
           } finally {
             setDeletingFlight(false)
           }
@@ -441,7 +455,7 @@ export default function TripDetailScreen() {
 
   async function handleSaveAccommodation() {
     if (!accommodationName.trim() || !accommodationLocation.trim()) {
-      Alert.alert(t('attention_title'), t('required_accommodation_fields'))
+      showAlert(t('attention_title'), t('required_accommodation_fields'))
       return
     }
 
@@ -451,22 +465,22 @@ export default function TripDetailScreen() {
     const checkOut = toTimeOrNull(accommodationCheckOut)
 
     if (accommodationCheckInDate.trim() && !checkInDate) {
-      Alert.alert(t('attention_title'), t('invalid_checkin_date'))
+      showAlert(t('attention_title'), t('invalid_checkin_date'))
       return
     }
 
     if (accommodationCheckOutDate.trim() && !checkOutDate) {
-      Alert.alert(t('attention_title'), t('invalid_checkout_date'))
+      showAlert(t('attention_title'), t('invalid_checkout_date'))
       return
     }
 
     if (accommodationCheckIn.trim() && !checkIn) {
-      Alert.alert(t('attention_title'), t('invalid_checkin_time'))
+      showAlert(t('attention_title'), t('invalid_checkin_time'))
       return
     }
 
     if (accommodationCheckOut.trim() && !checkOut) {
-      Alert.alert(t('attention_title'), t('invalid_checkout_time'))
+      showAlert(t('attention_title'), t('invalid_checkout_time'))
       return
     }
 
@@ -499,7 +513,7 @@ export default function TripDetailScreen() {
       resetAccommodationForm()
       loadAccommodations()
     } catch (err: any) {
-      Alert.alert(t('error_title'), err?.message || t('save_accommodation_failed'))
+      showAlert(t('error_title'), err?.message || t('save_accommodation_failed'))
     } finally {
       setSavingAccommodation(false)
     }
@@ -508,7 +522,7 @@ export default function TripDetailScreen() {
   async function handleDeleteAccommodation() {
     if (!editingAccommodationId) return
 
-    Alert.alert(t('confirm_delete_accommodation_title'), t('confirm_delete_accommodation_body'), [
+    showAlert(t('confirm_delete_accommodation_title'), t('confirm_delete_accommodation_body'), [
       { text: t('cancel_label'), style: 'cancel' },
       {
         text: t('delete_label'),
@@ -522,7 +536,7 @@ export default function TripDetailScreen() {
             resetAccommodationForm()
             loadAccommodations()
           } catch (err: any) {
-            Alert.alert(t('error_title'), err?.message || t('delete_accommodation_failed'))
+            showAlert(t('error_title'), err?.message || t('delete_accommodation_failed'))
           } finally {
             setDeletingAccommodation(false)
           }
@@ -532,14 +546,14 @@ export default function TripDetailScreen() {
   }
 
   async function handleDelete() {
-    Alert.alert(t('confirm_delete_trip_title'), t('confirm_delete_trip_body'), [
+    showAlert(t('confirm_delete_trip_title'), t('confirm_delete_trip_body'), [
       { text: t('cancel_label'), style: 'cancel' },
       {
         text: t('delete_label'), style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.from('trips').delete().eq('id', tripId)
           if (!error) router.back()
-          else Alert.alert(t('error_title'), t('delete_trip_failed'))
+          else showAlert(t('error_title'), t('delete_trip_failed'))
         }
       }
     ])
@@ -557,6 +571,8 @@ export default function TripDetailScreen() {
         start_date: trip.start_date || '',
         end_date: trip.end_date || '',
         cover_image: trip.cover_image || '',
+        budget: trip.budget != null ? String(trip.budget) : '',
+        budget_currency: trip.budget_currency || 'R$',
       }
     })
   }
@@ -579,6 +595,26 @@ export default function TripDetailScreen() {
     handleDelete()
   }
 
+  async function handleShareText() {
+    setShareMenuVisible(false)
+    try {
+      await shareAsText(tripId)
+    } catch (err: any) {
+      console.warn('[Share Text]', err)
+      showAlert('Erro', err?.message || 'Não foi possível compartilhar')
+    }
+  }
+
+  async function handleSharePDF() {
+    setShareMenuVisible(false)
+    try {
+      await shareAsPDF(tripId)
+    } catch (err: any) {
+      console.warn('[Share PDF]', err)
+      showAlert('Erro', err?.message || 'Não foi possível gerar o PDF')
+    }
+  }
+
   if (!trip) {
     return (
       <View style={styles.loading}>
@@ -588,9 +624,10 @@ export default function TripDetailScreen() {
   }
 
   return (
+    <DesktopLayout>
     <>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, isDesktop && styles.imageContainerDesktop]}>
           {trip.cover_image ? (
             <Image source={{ uri: trip.cover_image }} style={styles.image} resizeMode="cover" />
           ) : (
@@ -601,12 +638,17 @@ export default function TripDetailScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Icon name="arrow-back" size={22} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuBtn} onPress={handleOpenTripMenu}>
-            <Icon name="more-vert" size={22} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.topRightBtns}>
+            <TouchableOpacity style={styles.topBtn} onPress={() => setShareMenuVisible(true)}>
+              <Icon name="share" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.topBtn} onPress={handleOpenTripMenu}>
+              <Icon name="more-vert" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.content}>
+        <View style={[styles.content, isDesktop && styles.contentDesktop]}>
           <View style={styles.titleRow}>
             <View style={styles.titleLeft}>
               <Text style={styles.title}>{trip.title}</Text>
@@ -629,7 +671,7 @@ export default function TripDetailScreen() {
           <View style={styles.flightSectionHeader}>
             <Text style={styles.sectionTitle}>Voos</Text>
             <TouchableOpacity style={styles.flightAddIconBtn} onPress={openNewFlightModal}>
-              <Icon name="add" size={20} color={C.accent} />
+              <Icon name="add" size={20} color={C.icon} />
             </TouchableOpacity>
           </View>
 
@@ -639,25 +681,22 @@ export default function TripDetailScreen() {
               <Text style={styles.emptySectionText}>Nenhum voo cadastrado</Text>
             </View>
           ) : (
-            <View style={styles.flightCarouselWrapper}>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                decelerationRate="fast"
-                onMomentumScrollEnd={(e) => {
-                  const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH)
-                  setActiveFlightIndex(idx)
-                }}
-              >
+            <HScrollable
+              paginated={!isDesktop}
+              itemWidth={CARD_WIDTH}
+              itemCount={flights.length}
+              activeIndex={activeFlightIndex}
+              onIndexChange={setActiveFlightIndex}
+              showDots={!isDesktop && flights.length > 1}
+              contentContainerStyle={isDesktop ? styles.desktopCarouselRow : undefined}
+            >
                 {flights.map((flight) => (
                   <TouchableOpacity
                     key={flight.id}
-                    style={styles.flightCarouselCard}
+                    style={[styles.flightCarouselCard, { width: CARD_WIDTH }]}
                     activeOpacity={0.93}
                     onPress={() => openEditFlightModal(flight)}
                   >
-                    {/* Top row: date + number badge */}
                     <View style={styles.flightCardTopRow}>
                       <Text style={styles.flightCardDateLabel}>{formatDateShort(flight.departure_datetime)}</Text>
                       <View style={styles.flightNumBadge}>
@@ -666,10 +705,8 @@ export default function TripDetailScreen() {
                       </View>
                     </View>
 
-                    {/* Airline name */}
                     <Text style={styles.flightCardAirline}>{flight.airline}</Text>
 
-                    {/* Route: times + airports */}
                     <View style={styles.flightCardTimesRow}>
                       <View>
                         <Text style={styles.flightCardTime}>{formatTime(flight.departure_datetime)}</Text>
@@ -696,23 +733,13 @@ export default function TripDetailScreen() {
 
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
-
-              {flights.length > 1 && (
-                <View style={styles.flightPagDots}>
-                  {flights.map((_, i) => (
-                    <View key={i} style={[styles.flightPagDot, i === activeFlightIndex && styles.flightPagDotActive]} />
-                  ))}
-                </View>
-              )}
-
-            </View>
+            </HScrollable>
           )}
 
           <View style={styles.flightSectionHeader}>
             <Text style={styles.sectionTitle}>Hospedagem</Text>
             <TouchableOpacity style={styles.flightAddIconBtn} onPress={openNewAccommodationModal}>
-              <Icon name="add" size={20} color={C.accent} />
+              <Icon name="add" size={20} color={C.icon} />
             </TouchableOpacity>
           </View>
 
@@ -722,17 +749,15 @@ export default function TripDetailScreen() {
               <Text style={styles.emptySectionText}>Nenhuma hospedagem cadastrada</Text>
             </View>
           ) : (
-            <View style={styles.flightCarouselWrapper}>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                decelerationRate="fast"
-                onMomentumScrollEnd={(e) => {
-                  const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH)
-                  setActiveAccomIndex(idx)
-                }}
-              >
+            <HScrollable
+              paginated={!isDesktop}
+              itemWidth={CARD_WIDTH}
+              itemCount={accommodations.length}
+              activeIndex={activeAccomIndex}
+              onIndexChange={setActiveAccomIndex}
+              showDots={!isDesktop && accommodations.length > 1}
+              contentContainerStyle={isDesktop ? styles.desktopCarouselRow : undefined}
+            >
                 {accommodations.map((accom) => {
                   const daysUntil = getDaysUntil(accom.check_in_date)
                   const dateRange = formatDateRange(accom.check_in_date, accom.check_out_date)
@@ -742,7 +767,7 @@ export default function TripDetailScreen() {
                   return (
                     <TouchableOpacity
                       key={accom.id}
-                      style={styles.accomCarouselCard}
+                      style={[styles.accomCarouselCard, { width: CARD_WIDTH }]}
                       activeOpacity={0.93}
                       onPress={() => openEditAccommodationModal(accom)}
                     >
@@ -812,17 +837,7 @@ export default function TripDetailScreen() {
                     </TouchableOpacity>
                   )
                 })}
-              </ScrollView>
-
-              {accommodations.length > 1 && (
-                <View style={styles.flightPagDots}>
-                  {accommodations.map((_, i) => (
-                    <View key={i} style={[styles.flightPagDot, i === activeAccomIndex && styles.flightPagDotActive]} />
-                  ))}
-                </View>
-              )}
-
-            </View>
+            </HScrollable>
           )}
 
           <View style={styles.flightSectionHeader}>
@@ -831,7 +846,7 @@ export default function TripDetailScreen() {
               style={styles.flightAddIconBtn}
               onPress={() => trip && router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}
             >
-              <Icon name="add" size={20} color={C.accent} />
+              <Icon name="add" size={20} color={C.icon} />
             </TouchableOpacity>
           </View>
           <TouchableOpacity
@@ -890,7 +905,7 @@ export default function TripDetailScreen() {
               style={styles.flightAddIconBtn}
               onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title, openNew: '1' } })}
             >
-              <Icon name="add" size={20} color={C.accent} />
+              <Icon name="add" size={20} color={C.icon} />
             </TouchableOpacity>
           </View>
           {expenses.length === 0 ? (
@@ -974,29 +989,49 @@ export default function TripDetailScreen() {
               </TouchableOpacity>
             )
           })()}
+
+          {/* ── Checklist ── */}
+          <View style={styles.sectionBlock}>
+            <View style={styles.flightSectionHeader}>
+              <Text style={styles.sectionTitle}>Checklist</Text>
+              <TouchableOpacity
+                style={styles.flightAddIconBtn}
+                onPress={() => trip && router.push({ pathname: '/checklist', params: { id: trip.id, title: trip.title } })}
+              >
+                <Icon name="open-in-new" size={20} color={C.icon} />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.checklistCard}
+              activeOpacity={0.85}
+              onPress={() => trip && router.push({ pathname: '/checklist', params: { id: trip.id, title: trip.title } })}
+            >
+              <Icon name="checklist" size={28} color={C.tertiary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.checklistCardTitle}>Lista de bagagem e tarefas</Text>
+                <Text style={styles.checklistCardSub}>Organize o que levar e o que fazer</Text>
+              </View>
+              <Icon name="chevron-right" size={20} color={C.tertiary} />
+            </TouchableOpacity>
+          </View>
+
         </View>
       </ScrollView>
 
-      <Modal visible={flightsModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseFlightModal} />
-          <View style={styles.sheetContainer}>
-            <View style={styles.modalHandle} />
-            <View style={styles.sheetHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>{editingFlightId ? 'Editar voo' : 'Novo voo'}</Text>
-                <Text style={styles.modalSubtitle}>Preencha os dados do voo</Text>
-              </View>
+      <SheetModal
+        visible={flightsModalVisible}
+        onClose={handleCloseFlightModal}
+        title={editingFlightId ? 'Editar voo' : 'Novo voo'}
+        subtitle="Preencha os dados do voo"
+      >
               {editingFlightId ? (
-                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteFlight} disabled={deletingFlight || savingFlight}>
-                  <Icon name="delete-outline" size={20} color={C.error} />
-                </TouchableOpacity>
+                <View style={styles.sheetActions}>
+                  <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteFlight} disabled={deletingFlight || savingFlight}>
+                    <Icon name="delete-outline" size={20} color={C.error} />
+                  </TouchableOpacity>
+                </View>
               ) : null}
-              <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseFlightModal}>
-                <Icon name="close" size={20} color={C.secondary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
               <Text style={styles.sheetLabel}>Companhia *</Text>
               <View style={styles.sheetInputRow}>
                 <Icon name="flight" size={20} color={C.secondary} />
@@ -1047,48 +1082,72 @@ export default function TripDetailScreen() {
               <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveFlight} disabled={savingFlight || deletingFlight}>
                 {savingFlight ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingFlightId ? 'Salvar edicao' : 'Salvar voo'}</Text>}
               </TouchableOpacity>
-
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
 
       <Modal visible={tripMenuVisible} animationType="fade" transparent>
         <Pressable style={styles.menuOverlay} onPress={handleCloseTripMenu}>
           <Pressable style={styles.menuPanel} onPress={() => {}}>
             <TouchableOpacity style={styles.menuItem} onPress={handleEditFromMenu}>
-              <Text style={styles.menuItemText}>Editar viagem</Text>
+              <View style={styles.menuItemRow}>
+                <Icon name="edit" size={16} color={C.primary} />
+                <Text style={styles.menuItemText}>Editar viagem</Text>
+              </View>
             </TouchableOpacity>
             <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={handleDeleteFromMenu}>
-              <Text style={[styles.menuItemText, styles.menuItemDanger]}>Excluir viagem</Text>
+              <View style={styles.menuItemRow}>
+                <Icon name="delete-outline" size={16} color={C.error} />
+                <Text style={[styles.menuItemText, styles.menuItemDanger]}>Excluir viagem</Text>
+              </View>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
 
-      <Modal visible={accommodationModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseAccommodationModal} />
-          <View style={styles.sheetContainer}>
-            <View style={styles.modalHandle} />
-            <View style={styles.sheetHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>{editingAccommodationId ? 'Editar hospedagem' : 'Nova hospedagem'}</Text>
-                <Text style={styles.modalSubtitle}>Preencha os dados da hospedagem</Text>
+      <Modal visible={shareMenuVisible} animationType="fade" transparent>
+        <Pressable style={styles.menuOverlay} onPress={() => setShareMenuVisible(false)}>
+          <Pressable style={styles.sharePanel} onPress={() => {}}>
+            <Text style={styles.sharePanelTitle}>Compartilhar viagem</Text>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={handleShareText}>
+              <View style={styles.menuItemRow}>
+                <Icon name="chat" size={18} color={C.primary} />
+                <View>
+                  <Text style={styles.menuItemText}>Texto</Text>
+                  <Text style={styles.menuItemHint}>WhatsApp, Telegram, SMS...</Text>
+                </View>
               </View>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={handleSharePDF}>
+              <View style={styles.menuItemRow}>
+                <Icon name="picture-as-pdf" size={18} color={C.primary} />
+                <View>
+                  <Text style={styles.menuItemText}>PDF</Text>
+                  <Text style={styles.menuItemHint}>Email, salvar, imprimir...</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <SheetModal
+        visible={accommodationModalVisible}
+        onClose={handleCloseAccommodationModal}
+        title={editingAccommodationId ? 'Editar hospedagem' : 'Nova hospedagem'}
+        subtitle="Preencha os dados da hospedagem"
+      >
               {editingAccommodationId ? (
-                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteAccommodation} disabled={deletingAccommodation || savingAccommodation}>
-                  <Icon name="delete-outline" size={20} color={C.error} />
-                </TouchableOpacity>
+                <View style={styles.sheetActions}>
+                  <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteAccommodation} disabled={deletingAccommodation || savingAccommodation}>
+                    <Icon name="delete-outline" size={20} color={C.error} />
+                  </TouchableOpacity>
+                </View>
               ) : null}
-              <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseAccommodationModal}>
-                <Icon name="close" size={20} color={C.secondary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
               <Text style={styles.sheetLabel}>Imagem do local</Text>
-              <ImagePickerComponent imageUri={accommodationImageUri} onImageSelected={setAccommodationImageUri} />
+              <ImagePickerComponent imageUri={accommodationImageUri} onImageSelected={setAccommodationImageUri} uploadFolder="accommodations" onUploadingChange={setAccomImageUploading} />
 
               <Text style={styles.sheetLabel}>Nome *</Text>
               <View style={styles.sheetInputRow}>
@@ -1148,15 +1207,12 @@ export default function TripDetailScreen() {
                 <TextInput style={[styles.sheetInput, styles.sheetInputMultiline]} placeholder="Detalhes da hospedagem" placeholderTextColor={C.tertiary} value={accommodationDescription} onChangeText={setAccommodationDescription} multiline />
               </View>
 
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveAccommodation} disabled={savingAccommodation || deletingAccommodation}>
+              <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveAccommodation} disabled={savingAccommodation || deletingAccommodation || accomImageUploading}>
                 {savingAccommodation ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingAccommodationId ? 'Salvar edicao' : 'Salvar hospedagem'}</Text>}
               </TouchableOpacity>
-
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </>
+    </DesktopLayout>
   )
 }
 
@@ -1166,12 +1222,16 @@ const styles = StyleSheet.create({
   loadingText: { color: C.secondary, fontSize: 14 },
   imageContainer: { position: 'relative' },
   image: { width: '100%', height: 280 },
+  imageContainerDesktop: { maxHeight: 320, overflow: 'hidden' },
   imagePlaceholder: { width: '100%', height: 200, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 0.5, borderBottomColor: C.border },
   imagePlaceholderIcon: { fontSize: 24, color: C.tertiary, letterSpacing: 1 },
   backBtn: { position: 'absolute', top: 54, left: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
   backBtnText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   menuBtn: { position: 'absolute', top: 54, right: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
+  topRightBtns: { position: 'absolute', top: 54, right: 20, flexDirection: 'row', gap: 10 },
+  topBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingBottom: 60 },
+  contentDesktop: { paddingHorizontal: 40, paddingTop: 28, maxWidth: 960, alignSelf: 'center' as any, width: '100%' },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, marginTop: 16 },
   titleLeft: { flex: 1 },
   title: { fontSize: 24, fontWeight: '700', color: C.primary, marginBottom: 4 },
@@ -1193,8 +1253,8 @@ const styles = StyleSheet.create({
   flightAddIconBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh, borderWidth: 0.5, borderColor: C.border },
   emptyFlightCard: { backgroundColor: C.surface, borderRadius: 20, padding: 24, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', gap: 10 },
   flightCarouselWrapper: { marginBottom: 16 },
+  desktopCarouselRow: { gap: 16, paddingRight: 4 },
   flightCarouselCard: {
-    width: CARD_WIDTH,
     backgroundColor: C.surface,
     borderRadius: 20,
     padding: 20,
@@ -1210,9 +1270,9 @@ const styles = StyleSheet.create({
   flightCardDateLabel: { fontSize: 12, color: C.tertiary, fontWeight: '500' },
   flightNumBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   flightNumBadgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  flightCardAirline: { fontSize: 15, fontWeight: '700', color: C.primary, marginBottom: 20 },
-  flightCardTimesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  flightCardTime: { fontSize: 32, fontWeight: '800', color: C.primary },
+  flightCardAirline: { fontSize: 14, fontWeight: '700', color: C.primary, marginBottom: 14 },
+  flightCardTimesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  flightCardTime: { fontSize: 26, fontWeight: '800', color: C.primary },
   flightCardAirport: { fontSize: 13, fontWeight: '600', color: C.secondary, marginTop: 2 },
   flightCardSep: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 },
   flightCardLine: { flex: 1, height: 1.5, backgroundColor: C.border },
@@ -1239,7 +1299,6 @@ const styles = StyleSheet.create({
   editFlightHint: { fontSize: 11, color: C.accent, marginTop: 10, fontWeight: '500' },
   // Accommodation carousel
   accomCarouselCard: {
-    width: CARD_WIDTH,
     backgroundColor: C.surface,
     borderRadius: 20,
     overflow: 'hidden',
@@ -1252,10 +1311,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 4,
   },
-  accomImageWrapper: { position: 'relative', width: '100%', height: 200 },
-  accomCoverImage: { width: '100%', height: 200 },
+  accomImageWrapper: { position: 'relative', width: '100%', aspectRatio: 16 / 10 },
+  accomCoverImage: { width: '100%', height: '100%' },
   accomImagePlaceholder: {
-    width: '100%', height: 200,
+    width: '100%', height: '100%',
     backgroundColor: C.surfaceHigh,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -1266,7 +1325,7 @@ const styles = StyleSheet.create({
   },
   accomDateBadgeText: { fontSize: 13, fontWeight: '700', color: C.primary },
   accomCardBody: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
-  accomCardTitle: { fontSize: 22, fontWeight: '800', color: C.primary, marginBottom: 4, lineHeight: 28 },
+  accomCardTitle: { fontSize: 18, fontWeight: '800', color: C.primary, marginBottom: 4, lineHeight: 24 },
   accomCardMeta: { fontSize: 13, color: C.secondary, marginBottom: 6 },
   accomCardDesc: { fontSize: 12, color: C.tertiary, lineHeight: 17, marginTop: 4 },
   accomCheckRows: { borderTopWidth: 0.5, borderTopColor: C.border, marginTop: 4 },
@@ -1301,10 +1360,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
   },
+  sheetActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
   sheetDeleteBtn: {
     width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFF0EF', marginRight: 16,
+    backgroundColor: '#FFF0EF',
   },
   sheetCloseBtn: {
     width: 34, height: 34, borderRadius: 17,
@@ -1315,9 +1375,13 @@ const styles = StyleSheet.create({
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' },
   menuPanel: { position: 'absolute', top: 104, right: 20, backgroundColor: C.surface, borderRadius: 12, borderWidth: 0.5, borderColor: C.border, minWidth: 180, overflow: 'hidden' },
   menuItem: { paddingVertical: 12, paddingHorizontal: 16 },
+  menuItemRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   menuItemText: { fontSize: 13, color: C.primary, fontWeight: '600' },
   menuItemDanger: { color: C.error },
   menuDivider: { height: 1, backgroundColor: C.border },
+  sharePanel: { position: 'absolute', top: 104, right: 20, backgroundColor: C.surface, borderRadius: 16, borderWidth: 0.5, borderColor: C.border, minWidth: 220, overflow: 'hidden' },
+  sharePanelTitle: { fontSize: 12, fontWeight: '700', color: C.secondary, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
+  menuItemHint: { fontSize: 11, color: C.tertiary, marginTop: 1 },
   modalHandle: {
     width: 48, height: 6, borderRadius: 3,
     backgroundColor: 'rgba(0,0,0,0.1)',
@@ -1345,9 +1409,9 @@ const styles = StyleSheet.create({
   sheetInput: { flex: 1, fontSize: 15, color: C.primary, marginLeft: 10, paddingVertical: 14, padding: 0 },
   sheetInputMultiline: { minHeight: 70, textAlignVertical: 'top', paddingVertical: 0 },
   primaryBtn: {
-    backgroundColor: C.primary, borderRadius: 16, paddingVertical: 18,
+    backgroundColor: C.buttonPrimary, borderRadius: 16, paddingVertical: 18,
     alignItems: 'center', marginTop: 24,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 6 },
+    shadowColor: C.buttonPrimary, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
   },
   primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
@@ -1437,4 +1501,14 @@ const styles = StyleSheet.create({
   itineraryPreviewInfo: { flex: 1 },
   itineraryPreviewTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginBottom: 3 },
   itineraryPreviewMeta: { fontSize: 12, color: C.secondary },
+
+  // Checklist card
+  sectionBlock: { marginBottom: 16 },
+  checklistCard: {
+    backgroundColor: C.surface, borderRadius: 16, padding: 16,
+    borderWidth: 0.5, borderColor: C.border,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+  },
+  checklistCardTitle: { fontSize: 15, fontWeight: '600', color: C.primary, marginBottom: 2 },
+  checklistCardSub: { fontSize: 12, color: C.secondary },
 })

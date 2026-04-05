@@ -1,8 +1,7 @@
 import {
   View, Text, TouchableOpacity, Pressable, Image,
-  StyleSheet, Alert, Modal, TextInput,
-  KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator
+  StyleSheet, Modal, TextInput,
+  ScrollView, ActivityIndicator, Linking, Platform
 } from 'react-native'
 import Icon from '../components/Icon'
 import ImagePickerComponent from '../components/ImagePicker'
@@ -17,6 +16,15 @@ import {
   getLocalDatePlaceholder, getLocalTimePlaceholder,
   toISODateOrNull, toTimeOrNull
 } from '../lib/date-locale'
+import { showAlert } from '../lib/alert'
+import KeyboardView from '../components/KeyboardView'
+import SheetModal from '../components/SheetModal'
+import MapView from '../components/MapView'
+import { geocodeLocation } from '../lib/geocoding'
+import DesktopLayout from '../components/DesktopLayout'
+import { useResponsive } from '../hooks/useResponsive'
+import SortableList from '../components/SortableList'
+import HScrollable from '../components/HScrollable'
 
 const C = Colors.dark
 
@@ -35,6 +43,11 @@ function getCategoryConfig(value?: string | null) {
   return CATEGORIES.find(c => c.value === value) ?? CATEGORIES[6]
 }
 
+function openInGoogleMaps(lat: number, lng: number, label?: string) {
+  const q = label ? encodeURIComponent(label) : `${lat},${lng}`
+  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}&query_place_id=&center=${lat},${lng}`)
+}
+
 type ItineraryItem = {
   id: string
   title: string
@@ -45,6 +58,8 @@ type ItineraryItem = {
   location: string | null
   image_url: string | null
   category: string | null
+  latitude: number | null
+  longitude: number | null
   created_at: string
 }
 
@@ -110,6 +125,10 @@ export default function ItineraryScreen() {
   const [itemLocation,    setItemLocation]    = useState('')
   const [itemCategory,    setItemCategory]    = useState('free')
   const [itemImageUri,    setItemImageUri]    = useState<string | null>(null)
+  const [imageUploading, setImageUploading]  = useState(false)
+  const [itemLat,         setItemLat]         = useState<number | null>(null)
+  const [itemLng,         setItemLng]         = useState<number | null>(null)
+  const [mapVisible,      setMapVisible]      = useState(false)
 
   const datePlaceholder = getLocalDatePlaceholder()
   const timePlaceholder = getLocalTimePlaceholder()
@@ -141,6 +160,9 @@ export default function ItineraryScreen() {
     setItemLocation('')
     setItemCategory('free')
     setItemImageUri(null)
+    setItemLat(null)
+    setItemLng(null)
+    setMapVisible(false)
   }
 
   function openNewModal() {
@@ -159,6 +181,9 @@ export default function ItineraryScreen() {
     setItemLocation(item.location || '')
     setItemCategory(item.category || 'free')
     setItemImageUri(item.image_url || null)
+    setItemLat(item.latitude ?? null)
+    setItemLng(item.longitude ?? null)
+    setMapVisible(item.latitude != null && item.longitude != null)
     setModalVisible(true)
   }
 
@@ -169,17 +194,17 @@ export default function ItineraryScreen() {
 
   async function handleSave() {
     if (!itemTitle.trim()) {
-      Alert.alert(t('attention_title'), t('required_itinerary_fields'))
+      showAlert(t('attention_title'), t('required_itinerary_fields'))
       return
     }
     const dateISO = toISODateOrNull(itemDate)
     if (itemDate.trim() && !dateISO) {
-      Alert.alert(t('attention_title'), t('invalid_itinerary_date'))
+      showAlert(t('attention_title'), t('invalid_itinerary_date'))
       return
     }
     const timeVal = toTimeOrNull(itemTime)
     if (itemTime.trim() && !timeVal) {
-      Alert.alert(t('attention_title'), t('invalid_itinerary_time'))
+      showAlert(t('attention_title'), t('invalid_itinerary_time'))
       return
     }
     setSaving(true)
@@ -197,6 +222,8 @@ export default function ItineraryScreen() {
         location:       itemLocation.trim() || null,
         category:       itemCategory,
         image_url:      itemImageUri || null,
+        latitude:       itemLat,
+        longitude:      itemLng,
       }
       const request = editingId
         ? supabase.from('itinerary_items').update(payload).eq('id', editingId)
@@ -207,7 +234,7 @@ export default function ItineraryScreen() {
       resetForm()
       loadItems()
     } catch (err: any) {
-      Alert.alert(t('error_title'), err?.message || t('save_itinerary_failed'))
+      showAlert(t('error_title'), err?.message || t('save_itinerary_failed'))
     } finally {
       setSaving(false)
     }
@@ -215,7 +242,7 @@ export default function ItineraryScreen() {
 
   async function handleDelete() {
     if (!editingId) return
-    Alert.alert(t('confirm_delete_itinerary_title'), t('confirm_delete_itinerary_body'), [
+    showAlert(t('confirm_delete_itinerary_title'), t('confirm_delete_itinerary_body'), [
       { text: t('cancel_label'), style: 'cancel' },
       {
         text: t('delete_label'), style: 'destructive',
@@ -228,7 +255,7 @@ export default function ItineraryScreen() {
             resetForm()
             loadItems()
           } catch (err: any) {
-            Alert.alert(t('error_title'), err?.message || t('delete_itinerary_failed'))
+            showAlert(t('error_title'), err?.message || t('delete_itinerary_failed'))
           } finally {
             setDeleting(false)
           }
@@ -241,20 +268,74 @@ export default function ItineraryScreen() {
     ? items.filter(i => i.scheduled_date === selectedDate)
     : items
 
+  const { isDesktop } = useResponsive()
+
+  function renderUntimedCard(item: ItineraryItem) {
+    const catConf = getCategoryConfig(item.category)
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.untimedCard, { borderLeftColor: catConf.color }, isDesktop && styles.untimedCardDesktop]}
+        onPress={() => openEditModal(item)}
+        activeOpacity={0.85}
+      >
+        <View style={[styles.catChip, { backgroundColor: catConf.color + '18' }]}>
+          <Icon name={catConf.icon} size={10} color={catConf.color} />
+          <Text style={[styles.catChipText, { color: catConf.color }]}>{catConf.label}</Text>
+        </View>
+        <Text style={styles.untimedCardTitle}>{item.title}</Text>
+        {item.location ? (
+          <View style={styles.timelineLocationRow}>
+            {item.latitude && item.longitude ? (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); openInGoogleMaps(item.latitude!, item.longitude!, item.location ?? undefined) }}
+                hitSlop={8}
+                style={styles.mapLinkRow}
+              >
+                <Icon name="place" size={12} color="#34C759" />
+                <Text style={styles.mapLinkText}>{item.location}</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <Icon name="location-on" size={12} color={C.secondary} />
+                <Text style={styles.timelineLocation}>{item.location}</Text>
+              </>
+            )}
+          </View>
+        ) : null}
+      </TouchableOpacity>
+    )
+  }
+
+  const untimedItems = filteredItems.filter(i => !i.scheduled_time)
+  const timedItems = filteredItems.filter(i => !!i.scheduled_time)
+
+  async function handleReorder(newItems: ItineraryItem[]) {
+    // Update scheduled_time order based on new positions for timed items
+    // For untimed items, just update the local state (visual reorder)
+    const ids = newItems.map(i => i.id)
+    const reordered = items.map(i => {
+      const idx = ids.indexOf(i.id)
+      return idx >= 0 ? newItems[idx] : i
+    })
+    setItems(reordered)
+  }
+
   return (
+    <DesktopLayout fullWidth={isDesktop}>
     <View style={styles.container}>
 
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} activeOpacity={0.7}>
-          <Icon name="arrow-back" size={22} color={C.primary} />
+          <Icon name="arrow-back" size={22} color={C.icon} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Roteiro</Text>
           {tripTitle ? <Text style={styles.headerSubtitle} numberOfLines={1}>{tripTitle}</Text> : null}
         </View>
         <TouchableOpacity onPress={openNewModal} style={styles.headerBtn} activeOpacity={0.7}>
-          <Icon name="add-circle" size={26} color={C.primary} />
+          <Icon name="add-circle" size={26} color={C.icon} />
         </TouchableOpacity>
       </View>
 
@@ -263,7 +344,7 @@ export default function ItineraryScreen() {
         {/* ── Day Selector ── */}
         {days.length > 0 && (
           <View style={styles.daySection}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daySelectorContent}>
+            <HScrollable contentContainerStyle={styles.daySelectorContent}>
               {days.map((day) => {
                 const d          = new Date(day + 'T00:00:00')
                 const isActive   = day === selectedDate
@@ -284,7 +365,7 @@ export default function ItineraryScreen() {
                   </TouchableOpacity>
                 )
               })}
-            </ScrollView>
+            </HScrollable>
 
             {/* Bento summary */}
             <View style={styles.bentoRow}>
@@ -312,58 +393,106 @@ export default function ItineraryScreen() {
         ) : (
           <View style={styles.timeGridSection}>
             {/* Items sem horário */}
-            {filteredItems.filter(i => !i.scheduled_time).length > 0 && (
+            {untimedItems.length > 0 && (
               <View style={styles.untimedSection}>
-                <Text style={styles.untimedTitle}>Sem horário definido</Text>
-                {filteredItems.filter(i => !i.scheduled_time).map((item) => {
-                  const catConf = getCategoryConfig(item.category)
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.untimedCard, { borderLeftColor: catConf.color }]}
-                      onPress={() => openEditModal(item)}
-                      activeOpacity={0.85}
-                    >
-                      <View style={[styles.catChip, { backgroundColor: catConf.color + '18' }]}>
-                        <Icon name={catConf.icon} size={10} color={catConf.color} />
-                        <Text style={[styles.catChipText, { color: catConf.color }]}>{catConf.label}</Text>
-                      </View>
-                      <Text style={styles.untimedCardTitle}>{item.title}</Text>
-                      {item.location ? (
-                        <View style={styles.timelineLocationRow}>
-                          <Icon name="location-on" size={12} color={C.secondary} />
-                          <Text style={styles.timelineLocation}>{item.location}</Text>
-                        </View>
-                      ) : null}
-                    </TouchableOpacity>
-                  )
-                })}
+                <View style={styles.untimedHeader}>
+                  <Text style={styles.untimedTitle}>Sem horário definido</Text>
+                  {isDesktop && <Text style={styles.untimedHint}>Arraste para reordenar</Text>}
+                </View>
+                {isDesktop ? (
+                  <SortableList
+                    items={untimedItems}
+                    onReorder={handleReorder}
+                    renderItem={(item) => renderUntimedCard(item)}
+                  />
+                ) : (
+                  untimedItems.map((item) => renderUntimedCard(item))
+                )}
               </View>
             )}
 
-            {/* Grade de horários — sempre visível */}
-            <View style={styles.gridRow}>
-              {/* Coluna de horas */}
-              <View style={styles.hourColumn}>
-                {GRID_HOURS.map(h => (
-                  <View key={h} style={styles.hourCell}>
-                    <Text style={styles.hourLabel}>{String(h).padStart(2, '0')}:00</Text>
+            {/* Eventos com horário */}
+            {isDesktop ? (
+              /* Desktop: lista flat com drag & drop */
+              timedItems.length > 0 ? (
+                <View style={styles.desktopTimedSection}>
+                  <View style={styles.untimedHeader}>
+                    <Text style={styles.untimedTitle}>Eventos do dia</Text>
+                    <Text style={styles.untimedHint}>Arraste para reordenar</Text>
                   </View>
-                ))}
-              </View>
-
-              {/* Área de eventos */}
-              <View style={[styles.eventsArea, { height: (GRID_END_HOUR - GRID_START_HOUR) * HOUR_HEIGHT }]}>
-                {/* Linhas da grade */}
-                {GRID_HOURS.map(h => (
-                  <View
-                    key={h}
-                    style={[styles.gridLine, { top: (h - GRID_START_HOUR) * HOUR_HEIGHT }]}
+                  <SortableList
+                    items={timedItems}
+                    onReorder={handleReorder}
+                    renderItem={(item) => {
+                      const catConf = getCategoryConfig(item.category)
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[styles.desktopTimedCard, { borderLeftColor: catConf.color }]}
+                          onPress={() => openEditModal(item)}
+                          activeOpacity={0.85}
+                        >
+                          <View style={styles.desktopTimedTime}>
+                            <Text style={styles.desktopTimedTimeText}>{item.scheduled_time}</Text>
+                            {item.end_time && <Text style={styles.desktopTimedTimeEnd}>{item.end_time}</Text>}
+                          </View>
+                          <View style={styles.desktopTimedContent}>
+                            <View style={styles.desktopTimedTopRow}>
+                              <View style={[styles.catChip, { backgroundColor: catConf.color + '18' }]}>
+                                <Icon name={catConf.icon} size={10} color={catConf.color} />
+                                <Text style={[styles.catChipText, { color: catConf.color }]}>{catConf.label}</Text>
+                              </View>
+                              {item.location ? (
+                                item.latitude && item.longitude ? (
+                                  <TouchableOpacity
+                                    onPress={(e) => { e.stopPropagation?.(); openInGoogleMaps(item.latitude!, item.longitude!, item.location ?? undefined) }}
+                                    hitSlop={8}
+                                    style={styles.mapLinkRow}
+                                  >
+                                    <Icon name="place" size={11} color="#34C759" />
+                                    <Text style={[styles.mapLinkText, { fontSize: 11 }]}>{item.location}</Text>
+                                  </TouchableOpacity>
+                                ) : (
+                                  <View style={styles.eventCardLocRow}>
+                                    <Icon name="location-on" size={11} color={C.secondary} />
+                                    <Text style={styles.eventCardLocText}>{item.location}</Text>
+                                  </View>
+                                )
+                              ) : null}
+                            </View>
+                            <Text style={styles.desktopTimedTitle}>{item.title}</Text>
+                            {item.description ? <Text style={styles.desktopTimedDesc} numberOfLines={2}>{item.description}</Text> : null}
+                          </View>
+                          {item.image_url ? (
+                            <Image source={{ uri: item.image_url }} style={styles.desktopTimedThumb} resizeMode="cover" />
+                          ) : null}
+                          <View style={styles.desktopDragHandle}>
+                            <Icon name="drag-indicator" size={18} color={C.tertiary} />
+                          </View>
+                        </TouchableOpacity>
+                      )
+                    }}
                   />
-                ))}
-
-                {/* Cards de eventos posicionados absolutamente */}
-                {filteredItems.filter(i => !!i.scheduled_time).map((item) => {
+                </View>
+              ) : null
+            ) : (
+              /* Mobile: grade de horários */
+              <View style={styles.gridRow}>
+                <View style={styles.hourColumn}>
+                  {GRID_HOURS.map(h => (
+                    <View key={h} style={styles.hourCell}>
+                      <Text style={styles.hourLabel}>{String(h).padStart(2, '0')}:00</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={[styles.eventsArea, { height: (GRID_END_HOUR - GRID_START_HOUR) * HOUR_HEIGHT }]}>
+                  {GRID_HOURS.map(h => (
+                    <View
+                      key={h}
+                      style={[styles.gridLine, { top: (h - GRID_START_HOUR) * HOUR_HEIGHT }]}
+                    />
+                  ))}
+                  {timedItems.map((item) => {
                     const catConf = getCategoryConfig(item.category)
                     const top = getTopOffset(item.scheduled_time!)
                     const height = getEventHeight(item.scheduled_time!, item.end_time)
@@ -386,10 +515,21 @@ export default function ItineraryScreen() {
                               </Text>
                             ) : null}
                             {item.location ? (
-                              <View style={styles.eventCardLocRow}>
-                                <Icon name="location-on" size={9} color={C.secondary} />
-                                <Text style={styles.eventCardLocText} numberOfLines={1}>{item.location}</Text>
-                              </View>
+                              item.latitude && item.longitude ? (
+                                <TouchableOpacity
+                                  onPress={(e) => { e.stopPropagation?.(); openInGoogleMaps(item.latitude!, item.longitude!, item.location ?? undefined) }}
+                                  hitSlop={8}
+                                  style={styles.eventCardLocRow}
+                                >
+                                  <Icon name="place" size={9} color="#34C759" />
+                                  <Text style={[styles.eventCardLocText, { color: '#34C759' }]} numberOfLines={1}>{item.location}</Text>
+                                </TouchableOpacity>
+                              ) : (
+                                <View style={styles.eventCardLocRow}>
+                                  <Icon name="location-on" size={9} color={C.secondary} />
+                                  <Text style={styles.eventCardLocText} numberOfLines={1}>{item.location}</Text>
+                                </View>
+                              )
                             ) : null}
                           </View>
                           <Text style={styles.eventCardTitle} numberOfLines={2}>{item.title}</Text>
@@ -402,6 +542,7 @@ export default function ItineraryScreen() {
                   })}
                 </View>
               </View>
+            )}
           </View>
         )}
 
@@ -414,31 +555,19 @@ export default function ItineraryScreen() {
       </TouchableOpacity>
 
       {/* ── Modal ── */}
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseEventModal} />
-          <View style={styles.sheetContainer}>
-            <View style={styles.modalHandle} />
-            <View style={styles.sheetHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>{editingId ? 'Editar evento' : 'Novo evento'}</Text>
-                <Text style={styles.modalSubtitle}>Preencha os detalhes do evento</Text>
-              </View>
+      <SheetModal
+        visible={modalVisible}
+        onClose={handleCloseEventModal}
+        title={editingId ? 'Editar evento' : 'Novo evento'}
+        subtitle="Preencha os detalhes do evento"
+      >
               {editingId ? (
-                <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDelete} disabled={deleting}>
-                  <Icon name="delete-outline" size={20} color={C.error} />
-                </TouchableOpacity>
+                <View style={styles.sheetActions}>
+                  <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDelete} disabled={deleting}>
+                    <Icon name="delete-outline" size={20} color={C.error} />
+                  </TouchableOpacity>
+                </View>
               ) : null}
-              <TouchableOpacity style={styles.sheetCloseBtn} onPress={handleCloseEventModal}>
-                <Icon name="close" size={20} color={C.secondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              contentContainerStyle={styles.sheetScroll}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
               {/* Image picker */}
               <Text style={styles.sheetLabel}>Foto do evento</Text>
               <ImagePickerComponent
@@ -446,15 +575,13 @@ export default function ItineraryScreen() {
                 onImageSelected={setItemImageUri}
                 aspect={[16, 9]}
                 allowsEditing
+                uploadFolder="itinerary"
+                onUploadingChange={setImageUploading}
               />
 
               {/* Category picker */}
               <Text style={styles.sheetLabel}>Categoria</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryScroll}
-              >
+              <HScrollable contentContainerStyle={styles.categoryScroll}>
                 {CATEGORIES.map(cat => {
                   const active = itemCategory === cat.value
                   return (
@@ -474,7 +601,7 @@ export default function ItineraryScreen() {
                     </TouchableOpacity>
                   )
                 })}
-              </ScrollView>
+              </HScrollable>
 
               {/* Title */}
               <Text style={styles.sheetLabel}>Titulo *</Text>
@@ -548,6 +675,55 @@ export default function ItineraryScreen() {
                 />
               </View>
 
+              {/* Map picker (opcional) */}
+              <TouchableOpacity
+                style={styles.mapToggleBtn}
+                onPress={async () => {
+                  if (!mapVisible && !itemLat && itemLocation.trim()) {
+                    const coords = await geocodeLocation(itemLocation.trim())
+                    if (coords) { setItemLat(coords.lat); setItemLng(coords.lng) }
+                  }
+                  setMapVisible(!mapVisible)
+                }}
+                activeOpacity={0.7}
+              >
+                <Icon name={mapVisible ? 'expand-less' : 'map'} size={16} color={C.accent} />
+                <Text style={styles.mapToggleText}>
+                  {mapVisible ? 'Ocultar mapa' : itemLat ? 'Ver no mapa' : 'Marcar no mapa'}
+                </Text>
+                {itemLat != null && <View style={styles.mapPinDot} />}
+              </TouchableOpacity>
+
+              {mapVisible && (
+                <View style={styles.mapContainer}>
+                  <MapView
+                    latitude={itemLat}
+                    longitude={itemLng}
+                    height={200}
+                    editable
+                    onLocationSelect={(lat, lng) => { setItemLat(lat); setItemLng(lng) }}
+                  />
+                  {itemLat != null && itemLng != null && (
+                    <View style={styles.mapActionsRow}>
+                      <TouchableOpacity
+                        style={styles.mapGoogleBtn}
+                        onPress={() => openInGoogleMaps(itemLat!, itemLng!, itemLocation.trim() || undefined)}
+                      >
+                        <Icon name="open-in-new" size={14} color={C.accent} />
+                        <Text style={styles.mapGoogleText}>Abrir no Google Maps</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.mapClearBtn}
+                        onPress={() => { setItemLat(null); setItemLng(null) }}
+                      >
+                        <Icon name="close" size={14} color={C.error} />
+                        <Text style={styles.mapClearText}>Remover pin</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+
               {/* Notes */}
               <Text style={styles.sheetLabel}>Observacoes</Text>
               <View style={[styles.sheetInputRow, styles.sheetInputRowMultiline]}>
@@ -566,7 +742,7 @@ export default function ItineraryScreen() {
               <TouchableOpacity
                 style={styles.primaryBtn}
                 onPress={handleSave}
-                disabled={saving || deleting}
+                disabled={saving || deleting || imageUploading}
               >
                 {saving ? (
                   <ActivityIndicator color="#fff" />
@@ -576,11 +752,9 @@ export default function ItineraryScreen() {
               </TouchableOpacity>
 
 
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
+    </DesktopLayout>
   )
 }
 
@@ -648,7 +822,7 @@ const styles = StyleSheet.create({
   // FAB
   fab: {
     position: 'absolute', bottom: 36, right: 24,
-    width: 58, height: 58, borderRadius: 18, backgroundColor: C.primary,
+    width: 58, height: 58, borderRadius: 18, backgroundColor: C.buttonPrimary,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6,
   },
@@ -698,19 +872,63 @@ const styles = StyleSheet.create({
   },
   categoryChipText: { fontSize: 13, fontWeight: '600', color: C.secondary },
 
+  // Map picker
+  mapToggleBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 10, paddingVertical: 8, paddingHorizontal: 4,
+  },
+  mapToggleText: { fontSize: 13, fontWeight: '600', color: C.accent },
+  mapPinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#34C759' },
+  mapContainer: { marginTop: 8 },
+  mapActionsRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  mapGoogleBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingVertical: 4,
+  },
+  mapGoogleText: { fontSize: 12, color: C.accent, fontWeight: '600' },
+  mapClearBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingVertical: 4,
+  },
+  mapClearText: { fontSize: 12, color: C.error, fontWeight: '500' },
+  mapLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  mapLinkText: { fontSize: 12, color: '#34C759', fontWeight: '500', flex: 1 },
+
+  // Desktop timed cards
+  desktopTimedSection: { marginBottom: 16 },
+  desktopTimedCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.surface, borderRadius: 14, padding: 14,
+    borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
+    marginBottom: 8,
+  },
+  desktopTimedTime: { width: 56, alignItems: 'center', marginRight: 14 },
+  desktopTimedTimeText: { fontSize: 15, fontWeight: '700', color: C.primary },
+  desktopTimedTimeEnd: { fontSize: 11, color: C.tertiary, marginTop: 2 },
+  desktopTimedContent: { flex: 1 },
+  desktopTimedTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  desktopTimedTitle: { fontSize: 15, fontWeight: '700', color: C.primary },
+  desktopTimedDesc: { fontSize: 12, color: C.secondary, marginTop: 2 },
+  desktopTimedThumb: { width: 56, height: 56, borderRadius: 10, marginLeft: 12 },
+  desktopDragHandle: { marginLeft: 8, padding: 4 },
+
   // Buttons
   primaryBtn: {
-    backgroundColor: C.primary, borderRadius: 16, paddingVertical: 18,
+    backgroundColor: C.buttonPrimary, borderRadius: 16, paddingVertical: 18,
     alignItems: 'center', marginTop: 24,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
+    shadowColor: C.buttonPrimary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
   },
   primaryBtnText:    { fontSize: 15, fontWeight: '700', color: '#fff' },
   cancelSheetBtn:    { borderRadius: 16, paddingVertical: 18, alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.08)', marginTop: 10 },
   cancelSheetBtnText:{ fontSize: 15, fontWeight: '700', color: C.primary },
+  sheetActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
   sheetDeleteBtn: {
     width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFF0EF', marginRight: 16,
+    backgroundColor: '#FFF0EF',
   },
   deleteBtn:         { marginTop: 12, borderWidth: 0.5, borderColor: C.error, borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   deleteBtnText:     { color: C.error, fontSize: 14, fontWeight: '600' },
@@ -718,12 +936,15 @@ const styles = StyleSheet.create({
   // Time Grid
   timeGridSection: { paddingHorizontal: 20, marginTop: 16 },
   untimedSection: { marginBottom: 20 },
-  untimedTitle: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
+  untimedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  untimedTitle: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 1 },
+  untimedHint: { fontSize: 10, color: C.tertiary, fontStyle: 'italic' },
   untimedCard: {
     backgroundColor: C.surface, borderRadius: 14, padding: 12,
     borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
     marginBottom: 8,
   },
+  untimedCardDesktop: { marginBottom: 8 },
   untimedCardTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginTop: 4 },
   gridRow: { flexDirection: 'row' },
   hourColumn: { width: 44 },
