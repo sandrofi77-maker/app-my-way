@@ -1,6 +1,6 @@
 ﻿import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Image, Modal,
+  StyleSheet, Image, Modal, Platform,
   TextInput, ActivityIndicator, Pressable,
   useWindowDimensions
 } from 'react-native'
@@ -18,6 +18,7 @@ import SheetModal from '../components/SheetModal'
 import { shareAsText, shareAsPDF } from '../lib/share-trip'
 import DesktopLayout from '../components/DesktopLayout'
 import HScrollable from '../components/HScrollable'
+import { formatBRL } from '../lib/currency'
 import { useResponsive } from '../hooks/useResponsive'
 
 const C = Colors.dark
@@ -624,49 +625,60 @@ export default function TripDetailScreen() {
   }
 
   return (
-    <DesktopLayout>
+    <DesktopLayout fullWidth={isDesktop}>
     <>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={[styles.imageContainer, isDesktop && styles.imageContainerDesktop]}>
-          {trip.cover_image ? (
-            <Image source={{ uri: trip.cover_image }} style={styles.image} resizeMode="cover" />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Icon name="flight" size={48} color={C.tertiary} />
+        <View style={[styles.heroCard, isDesktop && styles.heroCardDesktop]}>
+          <View style={styles.heroImageWrap}>
+            {trip.cover_image ? (
+              <Image source={{ uri: trip.cover_image }} style={styles.heroImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.heroPlaceholder}>
+                <Icon name="flight" size={48} color={C.tertiary} />
+              </View>
+            )}
+
+            {/* Gradiente + info overlay */}
+            <View style={[
+              styles.heroOverlay,
+              Platform.OS === 'web'
+                ? { backgroundImage: 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.40) 55%, transparent 100%)' } as any
+                : { backgroundColor: 'rgba(0,0,0,0.38)' }
+            ]}>
+              <View style={styles.heroInfo}>
+                <Text style={styles.heroTitle} numberOfLines={2}>{trip.title}</Text>
+                <Text style={styles.heroDestination}>{trip.destination}</Text>
+                {(trip.start_date || trip.end_date) && (
+                  <View style={styles.heroDatesRow}>
+                    <View style={styles.heroDateBox}>
+                      <Text style={styles.heroDateLabel}>Ida</Text>
+                      <Text style={styles.heroDateValue}>{formatDate(trip.start_date)}</Text>
+                    </View>
+                    <View style={styles.heroDivider} />
+                    <View style={styles.heroDateBox}>
+                      <Text style={styles.heroDateLabel}>Volta</Text>
+                      <Text style={styles.heroDateValue}>{formatDate(trip.end_date)}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
             </View>
-          )}
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Icon name="arrow-back" size={22} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.topRightBtns}>
-            <TouchableOpacity style={styles.topBtn} onPress={() => setShareMenuVisible(true)}>
-              <Icon name="share" size={20} color="#fff" />
+
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+              <Icon name="arrow-back" size={22} color="#fff" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.topBtn} onPress={handleOpenTripMenu}>
-              <Icon name="more-vert" size={22} color="#fff" />
-            </TouchableOpacity>
+            <View style={styles.topRightBtns}>
+              <TouchableOpacity style={styles.topBtn} onPress={() => setShareMenuVisible(true)}>
+                <Icon name="share" size={20} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.topBtn} onPress={handleOpenTripMenu}>
+                <Icon name="more-vert" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-          <View style={styles.titleRow}>
-            <View style={styles.titleLeft}>
-              <Text style={styles.title}>{trip.title}</Text>
-              <Text style={styles.destination}>{trip.destination}</Text>
-            </View>
-          </View>
-
-          <View style={styles.datesRow}>
-            <View style={styles.dateBox}>
-              <Text style={styles.dateLabel}>Ida</Text>
-              <Text style={styles.dateValue}>{formatDate(trip.start_date)}</Text>
-            </View>
-            <Icon name="arrow-forward" size={18} color={C.tertiary} />
-            <View style={styles.dateBox}>
-              <Text style={styles.dateLabel}>Volta</Text>
-              <Text style={styles.dateValue}>{formatDate(trip.end_date)}</Text>
-            </View>
-          </View>
 
           <View style={styles.flightSectionHeader}>
             <Text style={styles.sectionTitle}>Voos</Text>
@@ -936,7 +948,7 @@ export default function TripDetailScreen() {
                 <View style={styles.expensesBentoTotal}>
                   <Text style={styles.expensesBentoTotalLabel}>Total gasto</Text>
                   <Text style={styles.expensesBentoTotalValue} numberOfLines={1} adjustsFontSizeToFit>
-                    {currency} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {currency} {formatBRL(total)}
                   </Text>
                   <Text style={styles.expensesBentoCountInline}>
                     {expenses.length} {expenses.length === 1 ? 'lançamento' : 'lançamentos'}
@@ -958,7 +970,7 @@ export default function TripDetailScreen() {
                           <View style={[styles.expensesCatBar, { width: `${pct}%` as any, backgroundColor: conf.color }]} />
                         </View>
                         <Text style={styles.expensesCatAmt}>
-                          {currency} {amt.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          {currency} {formatBRL(amt)}
                         </Text>
                       </View>
                     )
@@ -980,7 +992,7 @@ export default function TripDetailScreen() {
                         {e.description ? <Text style={styles.expensesRecentDesc} numberOfLines={1}>{e.description}</Text> : null}
                       </View>
                       <Text style={styles.expensesRecentAmt}>
-                        {e.currency} {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {e.currency} {formatBRL(e.amount)}
                       </Text>
                     </View>
                   )
@@ -1023,14 +1035,9 @@ export default function TripDetailScreen() {
         onClose={handleCloseFlightModal}
         title={editingFlightId ? 'Editar voo' : 'Novo voo'}
         subtitle="Preencha os dados do voo"
+        onDelete={editingFlightId ? handleDeleteFlight : undefined}
+        deleteDisabled={deletingFlight || savingFlight}
       >
-              {editingFlightId ? (
-                <View style={styles.sheetActions}>
-                  <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteFlight} disabled={deletingFlight || savingFlight}>
-                    <Icon name="delete-outline" size={20} color={C.error} />
-                  </TouchableOpacity>
-                </View>
-              ) : null}
 
               <Text style={styles.sheetLabel}>Companhia *</Text>
               <View style={styles.sheetInputRow}>
@@ -1137,14 +1144,9 @@ export default function TripDetailScreen() {
         onClose={handleCloseAccommodationModal}
         title={editingAccommodationId ? 'Editar hospedagem' : 'Nova hospedagem'}
         subtitle="Preencha os dados da hospedagem"
+        onDelete={editingAccommodationId ? handleDeleteAccommodation : undefined}
+        deleteDisabled={deletingAccommodation || savingAccommodation}
       >
-              {editingAccommodationId ? (
-                <View style={styles.sheetActions}>
-                  <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDeleteAccommodation} disabled={deletingAccommodation || savingAccommodation}>
-                    <Icon name="delete-outline" size={20} color={C.error} />
-                  </TouchableOpacity>
-                </View>
-              ) : null}
 
               <Text style={styles.sheetLabel}>Imagem do local</Text>
               <ImagePickerComponent imageUri={accommodationImageUri} onImageSelected={setAccommodationImageUri} uploadFolder="accommodations" onUploadingChange={setAccomImageUploading} />
@@ -1220,15 +1222,56 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   loading: { flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: C.secondary, fontSize: 14 },
-  imageContainer: { position: 'relative' },
-  image: { width: '100%', height: 280 },
-  imageContainerDesktop: { maxHeight: 320, overflow: 'hidden' },
-  imagePlaceholder: { width: '100%', height: 200, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 0.5, borderBottomColor: C.border },
+  heroCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 4,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: C.surfaceHigh,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 16 },
+      android: { elevation: 4 },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 16 },
+    }),
+  },
+  heroCardDesktop: {
+    maxWidth: 960,
+    width: '100%' as any,
+    alignSelf: 'center' as any,
+    marginHorizontal: 0,
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  heroImageWrap: {
+    width: '100%',
+    aspectRatio: 32 / 9,
+    position: 'relative',
+  },
+  heroImage: { width: '100%', height: '100%' as any },
+  heroPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ECECF0' },
+  heroOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingTop: 48,
+    paddingBottom: 20,
+  },
+  heroInfo: { gap: 4 },
+  heroTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.4, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  heroDestination: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.82)', marginBottom: 12, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  heroDatesRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  heroDateBox: { gap: 2 },
+  heroDateLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase' as any, letterSpacing: 0.6 },
+  heroDateValue: { fontSize: 13, fontWeight: '600', color: '#fff', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  heroDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.25)' },
   imagePlaceholderIcon: { fontSize: 24, color: C.tertiary, letterSpacing: 1 },
-  backBtn: { position: 'absolute', top: 54, left: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { position: 'absolute', top: 16, left: 16, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
   backBtnText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  menuBtn: { position: 'absolute', top: 54, right: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
-  topRightBtns: { position: 'absolute', top: 54, right: 20, flexDirection: 'row', gap: 10 },
+  menuBtn: { position: 'absolute', top: 16, right: 16, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
+  topRightBtns: { position: 'absolute', top: 16, right: 16, flexDirection: 'row', gap: 10 },
   topBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingBottom: 60 },
   contentDesktop: { paddingHorizontal: 40, paddingTop: 28, maxWidth: 960, alignSelf: 'center' as any, width: '100%' },
@@ -1359,17 +1402,6 @@ const styles = StyleSheet.create({
   sheetHeaderRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
-  },
-  sheetActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
-  sheetDeleteBtn: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFF0EF',
-  },
-  sheetCloseBtn: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: C.surfaceHigh,
   },
   sheetScroll: { paddingHorizontal: 24, paddingBottom: 34 },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' },

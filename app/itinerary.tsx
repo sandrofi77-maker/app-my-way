@@ -22,8 +22,6 @@ import SheetModal from '../components/SheetModal'
 import MapView from '../components/MapView'
 import { geocodeLocation } from '../lib/geocoding'
 import DesktopLayout from '../components/DesktopLayout'
-import { useResponsive } from '../hooks/useResponsive'
-import SortableList from '../components/SortableList'
 import HScrollable from '../components/HScrollable'
 
 const C = Colors.dark
@@ -268,14 +266,12 @@ export default function ItineraryScreen() {
     ? items.filter(i => i.scheduled_date === selectedDate)
     : items
 
-  const { isDesktop } = useResponsive()
-
   function renderUntimedCard(item: ItineraryItem) {
     const catConf = getCategoryConfig(item.category)
     return (
       <TouchableOpacity
         key={item.id}
-        style={[styles.untimedCard, { borderLeftColor: catConf.color }, isDesktop && styles.untimedCardDesktop]}
+        style={[styles.untimedCard, { borderLeftColor: catConf.color }]}
         onPress={() => openEditModal(item)}
         activeOpacity={0.85}
       >
@@ -310,19 +306,8 @@ export default function ItineraryScreen() {
   const untimedItems = filteredItems.filter(i => !i.scheduled_time)
   const timedItems = filteredItems.filter(i => !!i.scheduled_time)
 
-  async function handleReorder(newItems: ItineraryItem[]) {
-    // Update scheduled_time order based on new positions for timed items
-    // For untimed items, just update the local state (visual reorder)
-    const ids = newItems.map(i => i.id)
-    const reordered = items.map(i => {
-      const idx = ids.indexOf(i.id)
-      return idx >= 0 ? newItems[idx] : i
-    })
-    setItems(reordered)
-  }
-
   return (
-    <DesktopLayout fullWidth={isDesktop}>
+    <DesktopLayout>
     <View style={styles.container}>
 
       {/* ── Header ── */}
@@ -397,87 +382,13 @@ export default function ItineraryScreen() {
               <View style={styles.untimedSection}>
                 <View style={styles.untimedHeader}>
                   <Text style={styles.untimedTitle}>Sem horário definido</Text>
-                  {isDesktop && <Text style={styles.untimedHint}>Arraste para reordenar</Text>}
                 </View>
-                {isDesktop ? (
-                  <SortableList
-                    items={untimedItems}
-                    onReorder={handleReorder}
-                    renderItem={(item) => renderUntimedCard(item)}
-                  />
-                ) : (
-                  untimedItems.map((item) => renderUntimedCard(item))
-                )}
+                {untimedItems.map((item) => renderUntimedCard(item))}
               </View>
             )}
 
-            {/* Eventos com horário */}
-            {isDesktop ? (
-              /* Desktop: lista flat com drag & drop */
-              timedItems.length > 0 ? (
-                <View style={styles.desktopTimedSection}>
-                  <View style={styles.untimedHeader}>
-                    <Text style={styles.untimedTitle}>Eventos do dia</Text>
-                    <Text style={styles.untimedHint}>Arraste para reordenar</Text>
-                  </View>
-                  <SortableList
-                    items={timedItems}
-                    onReorder={handleReorder}
-                    renderItem={(item) => {
-                      const catConf = getCategoryConfig(item.category)
-                      return (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={[styles.desktopTimedCard, { borderLeftColor: catConf.color }]}
-                          onPress={() => openEditModal(item)}
-                          activeOpacity={0.85}
-                        >
-                          <View style={styles.desktopTimedTime}>
-                            <Text style={styles.desktopTimedTimeText}>{item.scheduled_time}</Text>
-                            {item.end_time && <Text style={styles.desktopTimedTimeEnd}>{item.end_time}</Text>}
-                          </View>
-                          <View style={styles.desktopTimedContent}>
-                            <View style={styles.desktopTimedTopRow}>
-                              <View style={[styles.catChip, { backgroundColor: catConf.color + '18' }]}>
-                                <Icon name={catConf.icon} size={10} color={catConf.color} />
-                                <Text style={[styles.catChipText, { color: catConf.color }]}>{catConf.label}</Text>
-                              </View>
-                              {item.location ? (
-                                item.latitude && item.longitude ? (
-                                  <TouchableOpacity
-                                    onPress={(e) => { e.stopPropagation?.(); openInGoogleMaps(item.latitude!, item.longitude!, item.location ?? undefined) }}
-                                    hitSlop={8}
-                                    style={styles.mapLinkRow}
-                                  >
-                                    <Icon name="place" size={11} color="#34C759" />
-                                    <Text style={[styles.mapLinkText, { fontSize: 11 }]}>{item.location}</Text>
-                                  </TouchableOpacity>
-                                ) : (
-                                  <View style={styles.eventCardLocRow}>
-                                    <Icon name="location-on" size={11} color={C.secondary} />
-                                    <Text style={styles.eventCardLocText}>{item.location}</Text>
-                                  </View>
-                                )
-                              ) : null}
-                            </View>
-                            <Text style={styles.desktopTimedTitle}>{item.title}</Text>
-                            {item.description ? <Text style={styles.desktopTimedDesc} numberOfLines={2}>{item.description}</Text> : null}
-                          </View>
-                          {item.image_url ? (
-                            <Image source={{ uri: item.image_url }} style={styles.desktopTimedThumb} resizeMode="cover" />
-                          ) : null}
-                          <View style={styles.desktopDragHandle}>
-                            <Icon name="drag-indicator" size={18} color={C.tertiary} />
-                          </View>
-                        </TouchableOpacity>
-                      )
-                    }}
-                  />
-                </View>
-              ) : null
-            ) : (
-              /* Mobile: grade de horários */
-              <View style={styles.gridRow}>
+            {/* Grade de horários (idêntica no mobile e web) */}
+            <View style={styles.gridRow}>
                 <View style={styles.hourColumn}>
                   {GRID_HOURS.map(h => (
                     <View key={h} style={styles.hourCell}>
@@ -541,8 +452,7 @@ export default function ItineraryScreen() {
                     )
                   })}
                 </View>
-              </View>
-            )}
+            </View>
           </View>
         )}
 
@@ -560,14 +470,9 @@ export default function ItineraryScreen() {
         onClose={handleCloseEventModal}
         title={editingId ? 'Editar evento' : 'Novo evento'}
         subtitle="Preencha os detalhes do evento"
+        onDelete={editingId ? handleDelete : undefined}
+        deleteDisabled={deleting}
       >
-              {editingId ? (
-                <View style={styles.sheetActions}>
-                  <TouchableOpacity style={styles.sheetDeleteBtn} onPress={handleDelete} disabled={deleting}>
-                    <Icon name="delete-outline" size={20} color={C.error} />
-                  </TouchableOpacity>
-                </View>
-              ) : null}
               {/* Image picker */}
               <Text style={styles.sheetLabel}>Foto do evento</Text>
               <ImagePickerComponent
@@ -838,10 +743,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
   },
-  sheetCloseBtn: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh,
-  },
   modalTitle:    { fontSize: 22, fontWeight: '800', color: C.primary, marginBottom: 2 },
   modalSubtitle: { fontSize: 14, color: C.secondary, marginBottom: 4 },
   modalRow:      { flexDirection: 'row', gap: 10 },
@@ -897,24 +798,6 @@ const styles = StyleSheet.create({
   mapLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   mapLinkText: { fontSize: 12, color: '#34C759', fontWeight: '500', flex: 1 },
 
-  // Desktop timed cards
-  desktopTimedSection: { marginBottom: 16 },
-  desktopTimedCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.surface, borderRadius: 14, padding: 14,
-    borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
-    marginBottom: 8,
-  },
-  desktopTimedTime: { width: 56, alignItems: 'center', marginRight: 14 },
-  desktopTimedTimeText: { fontSize: 15, fontWeight: '700', color: C.primary },
-  desktopTimedTimeEnd: { fontSize: 11, color: C.tertiary, marginTop: 2 },
-  desktopTimedContent: { flex: 1 },
-  desktopTimedTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-  desktopTimedTitle: { fontSize: 15, fontWeight: '700', color: C.primary },
-  desktopTimedDesc: { fontSize: 12, color: C.secondary, marginTop: 2 },
-  desktopTimedThumb: { width: 56, height: 56, borderRadius: 10, marginLeft: 12 },
-  desktopDragHandle: { marginLeft: 8, padding: 4 },
-
   // Buttons
   primaryBtn: {
     backgroundColor: C.buttonPrimary, borderRadius: 16, paddingVertical: 18,
@@ -924,12 +807,6 @@ const styles = StyleSheet.create({
   primaryBtnText:    { fontSize: 15, fontWeight: '700', color: '#fff' },
   cancelSheetBtn:    { borderRadius: 16, paddingVertical: 18, alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.08)', marginTop: 10 },
   cancelSheetBtnText:{ fontSize: 15, fontWeight: '700', color: C.primary },
-  sheetActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
-  sheetDeleteBtn: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFF0EF',
-  },
   deleteBtn:         { marginTop: 12, borderWidth: 0.5, borderColor: C.error, borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   deleteBtnText:     { color: C.error, fontSize: 14, fontWeight: '600' },
 
@@ -938,13 +815,11 @@ const styles = StyleSheet.create({
   untimedSection: { marginBottom: 20 },
   untimedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   untimedTitle: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 1 },
-  untimedHint: { fontSize: 10, color: C.tertiary, fontStyle: 'italic' },
   untimedCard: {
     backgroundColor: C.surface, borderRadius: 14, padding: 12,
     borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
     marginBottom: 8,
   },
-  untimedCardDesktop: { marginBottom: 8 },
   untimedCardTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginTop: 4 },
   gridRow: { flexDirection: 'row' },
   hourColumn: { width: 44 },
