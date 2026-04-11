@@ -122,11 +122,28 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Sessão expirada.')
 
+      // Busca o user_id do convidado pelo e-mail (se já tiver conta)
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle()
+
+      // Fallback: busca direto em auth.users via RPC se profiles não existir
+      let invitedUserId: string | null = profileData?.id || null
+
+      if (!invitedUserId) {
+        const { data: rpcData } = await supabase
+          .rpc('get_user_id_by_email', { p_email: email })
+        invitedUserId = rpcData || null
+      }
+
       const { error } = await supabase.from('trip_members').insert({
         trip_id: tripId,
         invited_email: email,
         role: inviteRole,
-        status: 'pending',
+        status: invitedUserId ? 'accepted' : 'pending',
+        user_id: invitedUserId,
         invited_by: user.id,
       })
       if (error) {
