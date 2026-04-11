@@ -17,6 +17,7 @@ import KeyboardView from '../components/KeyboardView'
 import SheetModal from '../components/SheetModal'
 import { shareAsText, shareAsPDF } from '../lib/share-trip'
 import DesktopLayout from '../components/DesktopLayout'
+import TripShareSheet from '../components/TripShareSheet'
 import HScrollable from '../components/HScrollable'
 import { formatBRL } from '../lib/currency'
 import { useResponsive } from '../hooks/useResponsive'
@@ -240,6 +241,8 @@ export default function TripDetailScreen() {
   const [itineraryItems, setItineraryItems] = useState<ItineraryItem[]>([])
   const [tripMenuVisible, setTripMenuVisible] = useState(false)
   const [shareMenuVisible, setShareMenuVisible] = useState(false)
+  const [tripShareSheetVisible, setTripShareSheetVisible] = useState(false)
+  const [tripOwnerId, setTripOwnerId] = useState('')
   const [activeFlightIndex, setActiveFlightIndex] = useState(0)
   const [activeAccomIndex, setActiveAccomIndex] = useState(0)
 
@@ -256,7 +259,10 @@ export default function TripDetailScreen() {
   async function loadTrip() {
     const { data, error } = await supabase
       .from('trips').select('*').eq('id', tripId).single()
-    if (!error) setTrip(data)
+    if (!error) {
+      setTrip(data)
+      setTripOwnerId(data.owner_id || '')
+    }
   }
 
   async function loadFlights() {
@@ -1116,6 +1122,16 @@ export default function TripDetailScreen() {
           <Pressable style={styles.sharePanel} onPress={() => {}}>
             <Text style={styles.sharePanelTitle}>Compartilhar viagem</Text>
             <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShareMenuVisible(false); setTripShareSheetVisible(true) }}>
+              <View style={styles.menuItemRow}>
+                <Icon name="group-add" size={18} color="#5856D6" />
+                <View>
+                  <Text style={styles.menuItemText}>Membros e permissões</Text>
+                  <Text style={styles.menuItemHint}>Convide usuários e gerencie acessos</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={handleShareText}>
               <View style={styles.menuItemRow}>
                 <Icon name="chat" size={18} color={C.primary} />
@@ -1138,6 +1154,14 @@ export default function TripDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <TripShareSheet
+        visible={tripShareSheetVisible}
+        onClose={() => setTripShareSheetVisible(false)}
+        tripId={tripId}
+        tripTitle={trip?.title || ''}
+        ownerId={tripOwnerId}
+      />
 
       <SheetModal
         visible={accommodationModalVisible}
