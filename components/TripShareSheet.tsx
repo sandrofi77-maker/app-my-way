@@ -59,9 +59,9 @@ const ROLES: { value: Role; label: string; desc: string; icon: string; color: st
 ]
 
 const STATUS_LABEL: Record<Status, { label: string; color: string }> = {
-  pending:  { label: 'Pendente',  color: '#FF9500' },
-  accepted: { label: 'Aceito',    color: '#34C759' },
-  declined: { label: 'Recusado',  color: C.error },
+  pending:  { label: 'Aguardando cadastro', color: '#FF9500' },
+  accepted: { label: 'Ativo',               color: '#34C759' },
+  declined: { label: 'Removido',            color: C.error },
 }
 
 // ── Componente ────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
         trip_id: tripId,
         invited_email: email,
         role: inviteRole,
-        status: invitedUserId ? 'accepted' : 'pending',
+        status: 'accepted',
         user_id: invitedUserId,
         invited_by: user.id,
       })
