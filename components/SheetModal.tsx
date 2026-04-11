@@ -24,9 +24,13 @@ type Props = {
   subtitle?: string
   /** Largura do drawer no desktop (default 480) */
   drawerWidth?: number
+  /** Callback de exclusao — exibe botao de lixeira no header */
+  onDelete?: () => void
+  /** Desabilita o botao de excluir */
+  deleteDisabled?: boolean
 }
 
-export default function SheetModal({ visible, onClose, children, title, subtitle, drawerWidth = 480 }: Props) {
+export default function SheetModal({ visible, onClose, children, title, subtitle, drawerWidth = 480, onDelete, deleteDisabled }: Props) {
   const { width } = useWindowDimensions()
   const isDesktop = Platform.OS === 'web' && width >= 1024
 
@@ -42,6 +46,11 @@ export default function SheetModal({ visible, onClose, children, title, subtitle
                 {title ? <Text style={styles.drawerTitle}>{title}</Text> : null}
                 {subtitle ? <Text style={styles.drawerSubtitle}>{subtitle}</Text> : null}
               </View>
+              {onDelete && (
+                <TouchableOpacity style={styles.headerDeleteBtn} onPress={onDelete} disabled={deleteDisabled}>
+                  <Icon name="delete-outline" size={20} color={C.error} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.drawerCloseBtn} onPress={onClose}>
                 <Icon name="close" size={20} color={C.secondary} />
               </TouchableOpacity>
@@ -66,7 +75,27 @@ export default function SheetModal({ visible, onClose, children, title, subtitle
       <KeyboardView style={styles.mobileOverlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.mobileContainer}>
-          <View style={styles.handle} />
+          <View style={styles.mobileTopRow}>
+            <View style={styles.handle} />
+            <View style={styles.mobileTopBtns}>
+              {onDelete && (
+                <TouchableOpacity style={styles.headerDeleteBtn} onPress={onDelete} disabled={deleteDisabled}>
+                  <Icon name="delete-outline" size={18} color={C.error} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.mobileCloseBtn} onPress={onClose}>
+                <Icon name="close" size={18} color={C.secondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          {(title || subtitle) && (
+            <View style={styles.mobileHeader}>
+              <View style={{ flex: 1 }}>
+                {title ? <Text style={styles.mobileTitle}>{title}</Text> : null}
+                {subtitle ? <Text style={styles.mobileSubtitle}>{subtitle}</Text> : null}
+              </View>
+            </View>
+          )}
           <ScrollView
             contentContainerStyle={styles.mobileScroll}
             keyboardShouldPersistTaps="handled"
@@ -109,6 +138,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
+    gap: 10,
   },
   drawerTitle: {
     fontSize: 20,
@@ -120,6 +150,14 @@ const styles = StyleSheet.create({
     color: C.secondary,
     marginTop: 2,
   },
+  headerDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF0EF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   drawerCloseBtn: {
     width: 36,
     height: 36,
@@ -127,7 +165,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.surfaceHigh,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 16,
   },
   drawerScroll: {
     padding: 28,
@@ -146,14 +183,49 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     maxHeight: '92%',
   },
+  mobileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
   handle: {
     width: 48,
     height: 6,
     borderRadius: 3,
     backgroundColor: 'rgba(0,0,0,0.1)',
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 8,
+  },
+  mobileTopBtns: {
+    position: 'absolute',
+    right: 16,
+    top: 10,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mobileCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: C.surfaceHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  mobileTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.primary,
+  },
+  mobileSubtitle: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 2,
   },
   mobileScroll: {
     paddingHorizontal: 24,

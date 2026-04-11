@@ -13,6 +13,7 @@ import Icon from '../components/Icon'
 import { showAlert } from '../lib/alert'
 import KeyboardView from '../components/KeyboardView'
 import DesktopLayout from '../components/DesktopLayout'
+import { applyCurrencyMask, parseCurrencyInput, numberToCurrencyInput } from '../lib/currency'
 
 const C = Colors.dark
 const CURRENCIES = ['R$', 'USD', 'EUR', 'GBP']
@@ -35,7 +36,7 @@ export default function EditTripScreen() {
   const [endDate, setEndDate] = useState(formatDateForInput(initialEnd as string))
   const [imageUri, setImageUri] = useState<string | null>(initialImage ? (initialImage as string) : null)
   const [imageUploading, setImageUploading] = useState(false)
-  const [budget, setBudget] = useState((initialBudget as string) || '')
+  const [budget, setBudget] = useState(initialBudget ? numberToCurrencyInput(Number(initialBudget)) : '')
   const [budgetCurrency, setBudgetCurrency] = useState((initialBudgetCurrency as string) || 'R$')
   const [loading, setLoading] = useState(false)
   const datePlaceholder = getLocalDatePlaceholder()
@@ -69,7 +70,7 @@ export default function EditTripScreen() {
           start_date: startDateISO,
           end_date: endDateISO,
           cover_image: imageUri || null,
-          budget: budget.trim() ? Number(budget.replace(',', '.')) : null,
+          budget: budget.trim() ? parseCurrencyInput(budget) : null,
           budget_currency: budgetCurrency,
         })
         .eq('id', id)
@@ -153,8 +154,8 @@ export default function EditTripScreen() {
             placeholder="0,00"
             placeholderTextColor={C.tertiary}
             value={budget}
-            onChangeText={setBudget}
-            keyboardType="decimal-pad"
+            onChangeText={(text) => setBudget(applyCurrencyMask(text))}
+            keyboardType="numeric"
           />
         </View>
 

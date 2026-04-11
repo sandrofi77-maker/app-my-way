@@ -13,6 +13,7 @@ import { showAlert } from '../lib/alert'
 import SheetModal from '../components/SheetModal'
 import DesktopLayout from '../components/DesktopLayout'
 import HScrollable from '../components/HScrollable'
+import { formatBRL, applyCurrencyMask, parseCurrencyInput, numberToCurrencyInput } from '../lib/currency'
 
 const C = Colors.dark
 
@@ -114,7 +115,7 @@ export default function ExpensesScreen() {
 
   function openEditExpense(expense: Expense) {
     setEditingExpenseId(expense.id)
-    setAmount(String(expense.amount ?? ''))
+    setAmount(numberToCurrencyInput(expense.amount))
     setDescription(expense.description || '')
     setCategory(expense.category || 'Alimentação')
     setCurrency(expense.currency || 'R$')
@@ -129,7 +130,8 @@ export default function ExpensesScreen() {
   }
 
   async function handleSave() {
-    if (!amount || isNaN(Number(amount))) {
+    const parsedAmount = parseCurrencyInput(amount)
+    if (!amount || parsedAmount <= 0) {
       showAlert(t('attention_title'), t('invalid_amount'))
       return
     }
@@ -138,7 +140,7 @@ export default function ExpensesScreen() {
     const payload = {
       trip_id: tripId,
       user_id: user?.id,
-      amount: Number(amount),
+      amount: parsedAmount,
       currency,
       category,
       description: description.trim(),
@@ -216,7 +218,7 @@ export default function ExpensesScreen() {
             <View style={styles.budgetCardHeader}>
               <Text style={styles.budgetCardLabel}>Orçamento</Text>
               <Text style={styles.budgetCardTotal}>
-                {budgetCur} {budgetAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {budgetCur} {formatBRL(budgetAmount)}
               </Text>
             </View>
             <View style={styles.budgetTrack}>
@@ -224,10 +226,10 @@ export default function ExpensesScreen() {
             </View>
             <View style={styles.budgetFooter}>
               <Text style={styles.budgetFooterLabel}>
-                Gasto: {budgetCur} {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                Gasto: {budgetCur} {formatBRL(total)}
               </Text>
               <Text style={[styles.budgetFooterBalance, { color: (budgetBalance ?? 0) >= 0 ? C.success : C.error }]}>
-                {(budgetBalance ?? 0) >= 0 ? 'Saldo: ' : 'Excesso: '}{budgetCur} {Math.abs(budgetBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {(budgetBalance ?? 0) >= 0 ? 'Saldo: ' : 'Excesso: '}{budgetCur} {formatBRL(Math.abs(budgetBalance ?? 0))}
               </Text>
             </View>
           </View>
@@ -237,7 +239,7 @@ export default function ExpensesScreen() {
         <View style={styles.bentoTotal}>
           <Text style={styles.bentoTotalLabel}>Total gasto</Text>
           <Text style={styles.bentoTotalValue} numberOfLines={1} adjustsFontSizeToFit>
-            R$ {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            R$ {formatBRL(total)}
           </Text>
           <Text style={styles.bentoCountInline}>{expenses.length} {expenses.length === 1 ? 'lançamento' : 'lançamentos'}</Text>
         </View>
@@ -258,7 +260,7 @@ export default function ExpensesScreen() {
                     <View style={[styles.catBreakdownBar, { width: `${pct}%` as any, backgroundColor: conf.color }]} />
                   </View>
                   <Text style={styles.catBreakdownAmt}>
-                    R$ {amt.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    R$ {formatBRL(amt)}
                   </Text>
                 </View>
               )
@@ -286,7 +288,7 @@ export default function ExpensesScreen() {
                     <Text style={styles.expenseDate}>{formatExpenseDate(item.date)}</Text>
                   </View>
                   <Text style={styles.expenseAmount}>
-                    {item.currency === 'BRL' ? 'R$' : item.currency} {item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {item.currency === 'BRL' ? 'R$' : item.currency} {formatBRL(item.amount)}
                   </Text>
                 </TouchableOpacity>
               )
@@ -306,14 +308,8 @@ export default function ExpensesScreen() {
         onClose={handleCloseExpenseModal}
         title={editingExpenseId ? 'Editar gasto' : 'Novo gasto'}
         subtitle="Registre os detalhes do gasto"
+        onDelete={editingExpenseId ? () => handleDelete(editingExpenseId) : undefined}
       >
-        {editingExpenseId ? (
-          <View style={styles.sheetActions}>
-            <TouchableOpacity style={styles.sheetDeleteBtn} onPress={() => handleDelete(editingExpenseId)}>
-              <Icon name="delete-outline" size={20} color={C.error} />
-            </TouchableOpacity>
-          </View>
-        ) : null}
 
         {/* Valor */}
         <Text style={styles.sheetLabel}>Valor *</Text>
@@ -324,8 +320,8 @@ export default function ExpensesScreen() {
             placeholder="0,00"
             placeholderTextColor={C.tertiary}
             value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
+            onChangeText={(text) => setAmount(applyCurrencyMask(text))}
+            keyboardType="numeric"
           />
         </View>
 
@@ -460,9 +456,6 @@ const styles = StyleSheet.create({
   sheetContainer: { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '92%' },
   modalHandle: { width: 48, height: 6, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.1)', alignSelf: 'center', marginBottom: 24 },
   sheetHeaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4 },
-  sheetActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
-  sheetDeleteBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF0EF' },
-  sheetCloseBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh },
   sheetScroll: { paddingHorizontal: 24, paddingBottom: 34 },
   modalTitle: { fontSize: 22, fontWeight: '800', color: C.primary, marginBottom: 2 },
   modalSubtitle: { fontSize: 14, color: C.secondary, marginBottom: 4 },

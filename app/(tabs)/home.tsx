@@ -10,6 +10,8 @@ import { supabase } from '../../lib/supabase'
 import { Colors } from '../../constants/Colors'
 import DesktopLayout from '../../components/DesktopLayout'
 import { useResponsive } from '../../hooks/useResponsive'
+import { formatBRL } from '../../lib/currency'
+import NewTripSheet from '../../components/NewTripSheet'
 
 const C = Colors.dark
 const MS_PER_DAY = 1000 * 60 * 60 * 24
@@ -46,6 +48,7 @@ export default function HomeScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'open' | 'completed'>('open')
   const [loading, setLoading] = useState(true)
+  const [showNewTrip, setShowNewTrip] = useState(false)
   const insets = useSafeAreaInsets()
 
   useFocusEffect(
@@ -284,58 +287,138 @@ export default function HomeScreen() {
   function renderTrip({ item, index }: { item: TripWithMeta, index: number }) {
     const nextItem = visibleTrips[index + 1]
     const daysBetween = isDesktop ? null : getDaysBetween(item, nextItem)
-    return (
-      <View style={isDesktop && gridColumns > 1 ? { flex: 1, maxWidth: `${100 / gridColumns}%` as any } : undefined}>
+    const budgetRatio = item.budget ? item.expenseTotal / item.budget : 0
+    const budgetColor = budgetRatio >= 0.9 ? C.error : budgetRatio >= 0.75 ? '#FF9500' : C.success
+    const budgetPct = Math.round(Math.min(budgetRatio * 100, 100))
+
+    if (isDesktop) {
+      return (
         <TouchableOpacity
-          style={[styles.card, isDesktop && styles.cardDesktop]}
+          style={styles.cardDesktop}
           activeOpacity={0.92}
           onPress={() => router.push({ pathname: '/trip-detail', params: { id: item.id } })}
         >
-          {/* Imagem com aspect ratio fixo */}
-          <View style={[styles.cardImgWrap, isDesktop && styles.cardImgWrapDesktop]}>
+          {/* Imagem lateral */}
+          <View style={styles.cardImgWrapDesktop}>
             {item.cover_image ? (
               <Image source={{ uri: item.cover_image }} style={styles.cardImgFill} resizeMode="cover" />
             ) : (
               <View style={styles.cardImgPlaceholderInner}>
-                <Icon name="flight" size={isDesktop ? 36 : 40} color={C.tertiary} />
+                <Icon name="flight" size={44} color={C.tertiary} />
               </View>
             )}
-            <View style={styles.cardOverlay}>
-              <View style={[styles.badge, { backgroundColor: 'rgba(255,255,255,0.85)' }]}>
-                <Text style={[styles.badgeText, { color: getBadgeColor(item) }]}>
-                  {getBadgeText(item)}
-                </Text>
+            <View style={styles.cardOverlayDesktop}>
+              <View style={[styles.badge, { backgroundColor: getBadgeColor(item) }]}>
+                <Text style={styles.badgeText}>{getBadgeText(item)}</Text>
               </View>
             </View>
           </View>
-          <View style={[styles.cardBody, isDesktop && styles.cardBodyDesktop]}>
-            <Text style={[styles.cardTitle, isDesktop && styles.cardTitleDesktop]}>{item.title}</Text>
-            <Text style={styles.cardDest}>{item.destination}</Text>
+
+          {/* Conteúdo */}
+          <View style={styles.cardBodyDesktop}>
+            <View style={styles.cardBodyTop}>
+              <Text style={styles.cardDestDesktop} numberOfLines={1}>{item.destination}</Text>
+              <Text style={styles.cardTitleDesktop} numberOfLines={1}>{item.title}</Text>
+            </View>
+
             {(item.start_date || item.end_date) && (
               <View style={styles.cardDateRow}>
-                <Text style={styles.cardDate}>{formatDate(item.start_date)}</Text>
-                <Icon name="arrow-forward" size={12} color={C.tertiary} />
-                <Text style={styles.cardDate}>{formatDate(item.end_date)}</Text>
+                <Icon name="event" size={16} color={C.tertiary} />
+                <Text style={styles.cardDateDesktop}>
+                  {formatDate(item.start_date)}
+                  {item.end_date ? ` — ${formatDate(item.end_date)}` : ''}
+                </Text>
               </View>
             )}
+
+            {/* Separador */}
+            {item.budget != null && <View style={styles.cardDivider} />}
+
+            {/* Gastos */}
+            {item.budget != null && (
+              <View style={styles.cardBudgetDesktop}>
+                <View style={styles.cardBudgetHeaderDesktop}>
+                  <View style={styles.cardBudgetLabelRow}>
+                    <Icon name="payments" size={15} color={C.tertiary} />
+                    <Text style={styles.cardBudgetLabel}>Gastos</Text>
+                  </View>
+                  <View style={styles.cardBudgetPctBadge}>
+                    <Text style={[styles.cardBudgetPctText, { color: budgetColor }]}>{budgetPct}%</Text>
+                  </View>
+                </View>
+                <View style={styles.cardBudgetAmountsDesktop}>
+                  <Text style={[styles.cardBudgetSpentDesktop, { color: budgetColor }]}>
+                    {item.budget_currency || 'R$'} {formatBRL(item.expenseTotal)}
+                  </Text>
+                  <Text style={styles.cardBudgetTotalDesktop}>
+                    {' '}de {item.budget_currency || 'R$'} {formatBRL(item.budget)}
+                  </Text>
+                </View>
+                <View style={styles.cardBudgetTrackDesktop}>
+                  <View style={[styles.cardBudgetBarDesktop, { width: `${budgetPct}%` as any, backgroundColor: budgetColor }]} />
+                </View>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      )
+    }
+
+    return (
+      <View>
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.92}
+          onPress={() => router.push({ pathname: '/trip-detail', params: { id: item.id } })}
+        >
+          {/* Imagem */}
+          <View style={styles.cardImgWrap}>
+            {item.cover_image ? (
+              <Image source={{ uri: item.cover_image }} style={styles.cardImgFill} resizeMode="cover" />
+            ) : (
+              <View style={styles.cardImgPlaceholderInner}>
+                <Icon name="flight" size={44} color={C.tertiary} />
+              </View>
+            )}
+            {/* Badge status */}
+            <View style={styles.cardOverlay}>
+              <View style={[styles.badge, { backgroundColor: getBadgeColor(item) }]}>
+                <Text style={styles.badgeText}>{getBadgeText(item)}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Conteúdo */}
+          <View style={styles.cardBody}>
+            <Text style={styles.cardDest} numberOfLines={1}>{item.destination}</Text>
+            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+
+            {(item.start_date || item.end_date) && (
+              <View style={styles.cardDateRow}>
+                <Icon name="event" size={14} color={C.tertiary} />
+                <Text style={styles.cardDate}>
+                  {formatDate(item.start_date)}
+                  {item.end_date ? ` — ${formatDate(item.end_date)}` : ''}
+                </Text>
+              </View>
+            )}
+
             {item.budget != null && (
               <View style={styles.cardBudgetRow}>
+                <View style={styles.cardBudgetInfo}>
+                  <Text style={styles.cardBudgetSpent}>
+                    {item.budget_currency || 'R$'} {formatBRL(item.expenseTotal)}
+                  </Text>
+                  <Text style={styles.cardBudgetTotal}>
+                    {' '}/ {formatBRL(item.budget)}
+                  </Text>
+                </View>
                 <View style={styles.cardBudgetTrack}>
                   <View style={[
                     styles.cardBudgetBar,
-                    {
-                      width: `${Math.min((item.expenseTotal / item.budget) * 100, 100)}%` as any,
-                      backgroundColor: item.expenseTotal / item.budget >= 0.9
-                        ? C.error
-                        : item.expenseTotal / item.budget >= 0.75
-                        ? '#FF9500'
-                        : C.success,
-                    }
+                    { width: `${Math.min(budgetRatio * 100, 100)}%` as any, backgroundColor: budgetColor }
                   ]} />
                 </View>
-                <Text style={styles.cardBudgetText}>
-                  {item.budget_currency || 'R$'} {item.expenseTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} / {item.budget.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </Text>
               </View>
             )}
           </View>
@@ -343,7 +426,7 @@ export default function HomeScreen() {
         {daysBetween !== null ? (
           <View style={styles.betweenTrips}>
             <Text style={styles.betweenTripsText}>
-              Entre as viagens: {daysBetween} {daysBetween === 1 ? 'dia' : 'dias'}
+              {daysBetween} {daysBetween === 1 ? 'dia' : 'dias'} entre viagens
             </Text>
           </View>
         ) : null}
@@ -352,12 +435,12 @@ export default function HomeScreen() {
   }
 
 
-  const { isDesktop, gridColumns } = useResponsive()
+  const { isDesktop } = useResponsive()
 
   return (
     <DesktopLayout>
     <SafeAreaView style={styles.container}>
-      <View style={[styles.header, { paddingTop: isDesktop ? 32 : 24 }]}>
+      <View style={[styles.header, { paddingTop: isDesktop ? 16 : 24 }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, isDesktop && styles.headerTitleDesktop]}>
             {isDesktop ? 'Minhas Viagens' : `Olá, ${userName}`}
@@ -378,7 +461,7 @@ export default function HomeScreen() {
           </>
         )}
         {isDesktop && (
-          <TouchableOpacity style={styles.desktopNewBtn} onPress={() => router.push('/new-trip')} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.desktopNewBtn} onPress={() => setShowNewTrip(true)} activeOpacity={0.85}>
             <Icon name="add" size={18} color="#fff" />
             <Text style={styles.desktopNewBtnText}>Nova viagem</Text>
           </TouchableOpacity>
@@ -391,7 +474,7 @@ export default function HomeScreen() {
           activeOpacity={0.85}
         >
           <Text style={[styles.segmentText, activeTab === 'open' && styles.segmentTextActive]}>
-            Em abertas
+            Viagens planejadas
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -400,7 +483,7 @@ export default function HomeScreen() {
           activeOpacity={0.85}
         >
           <Text style={[styles.segmentText, activeTab === 'completed' && styles.segmentTextActive]}>
-            Concluidas
+            Viagens concluídas
           </Text>
         </TouchableOpacity>
       </View>
@@ -408,11 +491,6 @@ export default function HomeScreen() {
         data={showLoading ? [] : visibleTrips}
         keyExtractor={(item) => item.id}
         renderItem={renderTrip}
-        {...(isDesktop && gridColumns > 1 ? {
-          numColumns: gridColumns,
-          key: `grid-${gridColumns}`,
-          columnWrapperStyle: { gap: 16 },
-        } : {})}
         contentContainerStyle={[styles.list, isDesktop && styles.listDesktop, { paddingBottom: 100 + insets.bottom }]}
         ListEmptyComponent={
           showLoading ? (
@@ -433,13 +511,18 @@ export default function HomeScreen() {
       {!isDesktop && (
         <TouchableOpacity
           style={[styles.fab, { bottom: 16 + insets.bottom }]}
-          onPress={() => router.push('/new-trip')}
+          onPress={() => setShowNewTrip(true)}
           activeOpacity={0.85}
         >
           <Icon name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       )}
     </SafeAreaView>
+    <NewTripSheet
+      visible={showNewTrip}
+      onClose={() => setShowNewTrip(false)}
+      onCreated={() => { setShowNewTrip(false); loadData() }}
+    />
     </DesktopLayout>
   )
 }
@@ -462,36 +545,81 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 12, color: C.tertiary, fontWeight: '600' },
   segmentTextActive: { color: C.primary },
   list: { padding: 20, paddingTop: 10 },
-  listDesktop: { paddingHorizontal: 24, paddingTop: 16 },
+  listDesktop: { paddingHorizontal: 0, paddingTop: 16 },
   skeletonList: { paddingTop: 6 },
-  card: { backgroundColor: C.surface, borderRadius: 16, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, overflow: 'hidden' },
-  cardDesktop: { borderRadius: 14, borderWidth: 0, marginBottom: 20 },
-  cardImgWrap: { width: '100%', aspectRatio: 16 / 10, backgroundColor: C.surfaceHigh, position: 'relative', overflow: 'hidden' },
-  cardImgWrapDesktop: { aspectRatio: 4 / 3, borderRadius: 14 },
+
+  /* ── Card Mobile ── */
+  card: { backgroundColor: C.surface, borderRadius: 16, marginBottom: 20, overflow: 'hidden', ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 }, android: { elevation: 3 }, default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 } }) },
+  cardImgWrap: { width: '100%', aspectRatio: 3 / 2, backgroundColor: C.surfaceHigh, position: 'relative', overflow: 'hidden' },
   cardImgFill: { width: '100%', height: '100%' },
-  cardImgPlaceholderInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  cardOverlay: { position: 'absolute', top: 12, right: 12 },
-  badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontSize: 10, fontWeight: '600' },
-  cardBody: { padding: 14 },
-  cardBodyDesktop: { paddingHorizontal: 4, paddingTop: 10, paddingBottom: 4 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: C.primary, marginBottom: 4 },
-  cardTitleDesktop: { fontSize: 15 },
-  cardDest: { fontSize: 13, color: C.secondary, marginBottom: 4 },
-  cardDate: { fontSize: 12, color: C.tertiary },
-  cardDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cardBudgetRow: { marginTop: 8, gap: 4 },
-  cardBudgetTrack: { height: 4, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden' },
-  cardBudgetBar: { height: 4, borderRadius: 3 },
-  cardBudgetText: { fontSize: 11, color: C.tertiary },
-  skeletonImage: { width: '100%', height: 140, backgroundColor: C.surfaceHigh },
-  skeletonLine: { height: 10, borderRadius: 6, backgroundColor: C.surfaceHigh, marginBottom: 8 },
-  skeletonTitle: { width: '60%', height: 12 },
-  skeletonSubtitle: { width: '45%' },
+  cardImgPlaceholderInner: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ECECF0' },
+  cardOverlay: { position: 'absolute', top: 14, left: 14 },
+  badge: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  badgeText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.2 },
+  cardBody: { padding: 16, paddingTop: 14, gap: 4 },
+  cardDest: { fontSize: 20, fontWeight: '800', color: C.primary, letterSpacing: -0.3 },
+  cardTitle: { fontSize: 14, fontWeight: '500', color: C.secondary },
+  cardDate: { fontSize: 13, color: C.tertiary, fontWeight: '500' },
+  cardDateRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  cardBudgetRow: { marginTop: 10, gap: 6 },
+  cardBudgetInfo: { flexDirection: 'row', alignItems: 'baseline' },
+  cardBudgetSpent: { fontSize: 15, fontWeight: '700', color: C.primary },
+  cardBudgetTotal: { fontSize: 13, fontWeight: '500', color: C.tertiary },
+  cardBudgetTrack: { height: 5, backgroundColor: '#ECECF0', borderRadius: 4, overflow: 'hidden' },
+  cardBudgetBar: { height: 5, borderRadius: 4 },
+
+  /* ── Card Desktop (horizontal, 1 por linha) ── */
+  cardDesktop: {
+    flexDirection: 'row',
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    marginBottom: 20,
+    overflow: 'hidden',
+    minHeight: 220,
+    ...Platform.select({
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.09, shadowRadius: 14 },
+    }),
+  },
+  cardImgWrapDesktop: {
+    width: 340,
+    flexShrink: 0,
+    backgroundColor: '#ECECF0',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cardOverlayDesktop: { position: 'absolute', top: 16, left: 16 },
+  cardBodyDesktop: {
+    flex: 1,
+    paddingHorizontal: 32,
+    paddingVertical: 28,
+    justifyContent: 'space-between',
+  },
+  cardBodyTop: { gap: 6, marginBottom: 10 },
+  cardDestDesktop: { fontSize: 26, fontWeight: '800', color: C.primary, letterSpacing: -0.5 },
+  cardTitleDesktop: { fontSize: 16, fontWeight: '500', color: C.secondary },
+  cardDateDesktop: { fontSize: 15, color: C.tertiary, fontWeight: '500' },
+  cardDivider: { height: 1, backgroundColor: C.border, marginVertical: 14 },
+
+  /* Gastos desktop */
+  cardBudgetDesktop: { gap: 8 },
+  cardBudgetHeaderDesktop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardBudgetLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardBudgetLabel: { fontSize: 13, fontWeight: '600', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  cardBudgetPctBadge: { backgroundColor: C.surfaceHigh, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+  cardBudgetPctText: { fontSize: 13, fontWeight: '700' },
+  cardBudgetAmountsDesktop: { flexDirection: 'row', alignItems: 'baseline', gap: 0 },
+  cardBudgetSpentDesktop: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  cardBudgetTotalDesktop: { fontSize: 15, fontWeight: '500', color: C.tertiary },
+  cardBudgetTrackDesktop: { height: 7, backgroundColor: '#ECECF0', borderRadius: 6, overflow: 'hidden' },
+  cardBudgetBarDesktop: { height: 7, borderRadius: 6 },
+  skeletonImage: { width: '100%', aspectRatio: 3 / 2, backgroundColor: '#ECECF0' },
+  skeletonLine: { height: 10, borderRadius: 6, backgroundColor: '#ECECF0', marginBottom: 8 },
+  skeletonTitle: { width: '55%', height: 16 },
+  skeletonSubtitle: { width: '40%', height: 12 },
   skeletonDate: { width: '35%' },
-  skeletonBadge: { width: 70, height: 18, backgroundColor: C.surfaceHigh },
-  betweenTrips: { alignItems: 'center', marginBottom: 12 },
-  betweenTripsText: { fontSize: 11, color: C.tertiary, fontWeight: '600' },
+  skeletonBadge: { width: 80, height: 22, backgroundColor: '#ECECF0', borderRadius: 20 },
+  betweenTrips: { alignItems: 'center', marginBottom: 16, marginTop: -4 },
+  betweenTripsText: { fontSize: 11, color: C.tertiary, fontWeight: '500', backgroundColor: C.background, paddingHorizontal: 12 },
   empty: { alignItems: 'center', paddingTop: 80 },
   emptyIcon: { marginBottom: 16 },
   emptyTitle: { fontSize: 16, fontWeight: '600', color: C.primary, marginBottom: 8 },

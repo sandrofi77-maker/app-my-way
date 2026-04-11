@@ -13,6 +13,7 @@ import Icon from '../components/Icon'
 import { showAlert } from '../lib/alert'
 import KeyboardView from '../components/KeyboardView'
 import DesktopLayout from '../components/DesktopLayout'
+import { applyCurrencyMask, parseCurrencyInput } from '../lib/currency'
 
 const C = Colors.dark
 const CURRENCIES = ['R$', 'USD', 'EUR', 'GBP']
@@ -61,7 +62,7 @@ export default function NewTripScreen() {
         cover_image: imageUri || null,
         owner_id: user.id,
         status: 'planning',
-        budget: budget.trim() ? Number(budget.replace(',', '.')) : null,
+        budget: budget.trim() ? parseCurrencyInput(budget) : null,
         budget_currency: budgetCurrency,
       })
 
@@ -143,8 +144,8 @@ export default function NewTripScreen() {
             placeholder="0,00"
             placeholderTextColor={C.tertiary}
             value={budget}
-            onChangeText={setBudget}
-            keyboardType="decimal-pad"
+            onChangeText={(text) => setBudget(applyCurrencyMask(text))}
+            keyboardType="numeric"
           />
         </View>
 
