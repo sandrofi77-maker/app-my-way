@@ -1,4 +1,4 @@
-import { View, StyleSheet } from 'react-native'
+import { View, ScrollView, StyleSheet } from 'react-native'
 import { useResponsive } from '../hooks/useResponsive'
 import WebTopBar from './WebTopBar'
 import { Colors } from '../constants/Colors'
@@ -21,11 +21,14 @@ export default function DesktopLayout({ children, fullWidth }: Props) {
   return (
     <View style={styles.root}>
       <WebTopBar />
-      <View style={styles.main}>
+      <ScrollView
+        style={styles.main}
+        contentContainerStyle={styles.mainContent}
+      >
         <View style={fullWidth ? styles.contentFull : [styles.content, { maxWidth: contentMaxWidth }]}>
           {children}
         </View>
-      </View>
+      </ScrollView>
     </View>
   )
 }
@@ -38,8 +41,10 @@ const styles = StyleSheet.create({
   },
   main: {
     flex: 1,
+  },
+  mainContent: {
     alignItems: 'center',
-    overflow: 'hidden',
+    flexGrow: 1,
   },
   content: {
     flex: 1,

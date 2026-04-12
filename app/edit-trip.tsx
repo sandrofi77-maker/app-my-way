@@ -160,7 +160,7 @@ export default function EditTripScreen() {
         </View>
 
         <TouchableOpacity style={[styles.button, (loading || imageUploading) && styles.buttonDisabled]} onPress={handleSave} disabled={loading || imageUploading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Salvar alteracoes</Text>}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Salvar alterações</Text>}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardView>

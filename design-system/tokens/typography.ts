@@ -1,21 +1,29 @@
 /**
  * Typography tokens — font sizes, weights, line heights, letter spacing.
- * Uses system fonts by default (SF on iOS, Roboto on Android, system-ui on web).
+ * Uses Roboto as the default font across all platforms.
  */
 
 import { Platform } from 'react-native'
 
 export const fontFamily = {
-  sans: Platform.select({
-    ios: 'System',
-    android: 'sans-serif',
-    default: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  }) as string,
+  sans: 'Roboto_400Regular',
+  sansMedium: 'Roboto_500Medium',
+  sansSemibold: 'Roboto_600SemiBold',
+  sansBold: 'Roboto_700Bold',
+  sansExtrabold: 'Roboto_800ExtraBold',
   mono: Platform.select({
     ios: 'Menlo',
     android: 'monospace',
     default: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   }) as string,
+}
+
+export const fontFamilyByWeight: Record<string, string> = {
+  '400': fontFamily.sans,
+  '500': fontFamily.sansMedium,
+  '600': fontFamily.sansSemibold,
+  '700': fontFamily.sansBold,
+  '800': fontFamily.sansExtrabold,
 }
 
 export const fontWeight = {

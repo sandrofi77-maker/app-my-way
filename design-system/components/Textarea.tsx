@@ -43,6 +43,7 @@ export const Textarea = forwardRef<TextInput, TextareaProps>(function Textarea(
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text,
     fontFamily: theme.typography.fontFamily.sans,
+    fontWeight: undefined,
     minHeight: rows * 22,
     textAlignVertical: 'top',
     ...({ outlineStyle: 'none' } as any),
