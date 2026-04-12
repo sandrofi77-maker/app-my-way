@@ -1093,7 +1093,7 @@ export default function TripDetailScreen() {
               </View>
 
               <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveFlight} disabled={savingFlight || deletingFlight}>
-                {savingFlight ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingFlightId ? 'Salvar edicao' : 'Salvar voo'}</Text>}
+                {savingFlight ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingFlightId ? 'Salvar edição' : 'Salvar voo'}</Text>}
               </TouchableOpacity>
       </SheetModal>
 

@@ -69,6 +69,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     fontSize: s.fontSize,
     color: theme.colors.text,
     fontFamily: theme.typography.fontFamily.sans,
+    fontWeight: undefined,
     ...(leftIcon && { marginLeft: 8 }),
     ...(rightIcon && { marginRight: 8 }),
     // web-specific outline removal

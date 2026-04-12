@@ -652,7 +652,7 @@ export default function ItineraryScreen() {
                 {saving ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.primaryBtnText}>{editingId ? 'Salvar edicao' : 'Salvar evento'}</Text>
+                  <Text style={styles.primaryBtnText}>{editingId ? 'Salvar edição' : 'Salvar evento'}</Text>
                 )}
               </TouchableOpacity>
 

@@ -1,10 +1,10 @@
 import {
-  View, Text, FlatList, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Image, Animated, Platform
 } from 'react-native'
 import Icon from '../../components/Icon'
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { Colors } from '../../constants/Colors'
@@ -437,9 +437,10 @@ export default function HomeScreen() {
 
   const { isDesktop } = useResponsive()
 
-  return (
-    <DesktopLayout>
-    <SafeAreaView style={styles.container}>
+  const Wrapper = isDesktop ? View : ScrollView
+
+  const content = (
+    <>
       <View style={[styles.header, { paddingTop: isDesktop ? 16 : 24 }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, isDesktop && styles.headerTitleDesktop]}>
@@ -487,37 +488,45 @@ export default function HomeScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={showLoading ? [] : visibleTrips}
-        keyExtractor={(item) => item.id}
-        renderItem={renderTrip}
-        contentContainerStyle={[styles.list, isDesktop && styles.listDesktop, { paddingBottom: 100 + insets.bottom }]}
-        ListEmptyComponent={
-          showLoading ? (
-            <SkeletonList />
-          ) : (
-            <View style={styles.empty}>
-            <Icon name="flight" size={48} color={C.tertiary} />
-            <Text style={styles.emptyTitle}>
-              {activeTab === 'open' ? 'Nenhuma viagem em aberto' : 'Nenhuma viagem concluida'}
-            </Text>
-            <Text style={styles.emptyDesc}>
-              {activeTab === 'open' ? 'Crie sua primeira viagem!' : 'Finalize uma viagem para ver aqui.'}
-            </Text>
-          </View>
-          )
-        }
-      />
-      {!isDesktop && (
-        <TouchableOpacity
-          style={[styles.fab, { bottom: 16 + insets.bottom }]}
-          onPress={() => setShowNewTrip(true)}
-          activeOpacity={0.85}
-        >
-          <Icon name="add" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
+
+      {showLoading ? (
+        <SkeletonList />
+      ) : visibleTrips.length === 0 ? (
+        <View style={styles.empty}>
+          <Icon name="flight" size={48} color={C.tertiary} />
+          <Text style={styles.emptyTitle}>
+            {activeTab === 'open' ? 'Nenhuma viagem em aberto' : 'Nenhuma viagem concluida'}
+          </Text>
+          <Text style={styles.emptyDesc}>
+            {activeTab === 'open' ? 'Crie sua primeira viagem!' : 'Finalize uma viagem para ver aqui.'}
+          </Text>
+        </View>
+      ) : (
+        visibleTrips.map((item, index) => (
+          <View key={item.id}>{renderTrip({ item, index })}</View>
+        ))
       )}
-    </SafeAreaView>
+    </>
+  )
+
+  return (
+    <DesktopLayout>
+    <Wrapper
+      style={styles.container}
+      {...(!isDesktop && { contentContainerStyle: [styles.list, { paddingBottom: 100 + insets.bottom, paddingTop: insets.top }] })}
+      {...(isDesktop && { style: [styles.container, styles.list, styles.listDesktop] })}
+    >
+      {content}
+    </Wrapper>
+    {!isDesktop && (
+      <TouchableOpacity
+        style={[styles.fab, { bottom: 16 + insets.bottom }]}
+        onPress={() => setShowNewTrip(true)}
+        activeOpacity={0.85}
+      >
+        <Icon name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
+    )}
     <NewTripSheet
       visible={showNewTrip}
       onClose={() => setShowNewTrip(false)}
@@ -529,7 +538,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, gap: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, gap: 10 },
   headerTitle: { fontSize: 24, fontWeight: '700', color: C.primary },
   headerTitleDesktop: { fontSize: 28, fontWeight: '800' },
   desktopNewBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.buttonPrimary, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
@@ -538,13 +547,13 @@ const styles = StyleSheet.create({
   avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.surface, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
   avatarImage: { width: 42, height: 42, borderRadius: 21 },
   avatarText: { color: C.accent, fontSize: 18, fontWeight: '600' },
-  segment: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 10, backgroundColor: C.surface, borderRadius: 14, borderWidth: 0.5, borderColor: C.border, padding: 4 },
+  segment: { flexDirection: 'row', marginBottom: 10, backgroundColor: C.surface, borderRadius: 14, borderWidth: 0.5, borderColor: C.border, padding: 4 },
   segmentItem: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
   segmentDesktop: { maxWidth: 300 },
   segmentItemActive: { backgroundColor: C.surfaceHigh },
   segmentText: { fontSize: 12, color: C.tertiary, fontWeight: '600' },
   segmentTextActive: { color: C.primary },
-  list: { padding: 20, paddingTop: 10 },
+  list: { paddingHorizontal: 20, paddingTop: 0 },
   listDesktop: { paddingHorizontal: 0, paddingTop: 16 },
   skeletonList: { paddingTop: 6 },
 

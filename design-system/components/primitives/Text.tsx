@@ -1,7 +1,7 @@
 import React from 'react'
 import { Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native'
 import { useTheme } from '../../theme'
-import { TextVariant } from '../../tokens/typography'
+import { TextVariant, fontFamilyByWeight } from '../../tokens/typography'
 import { SemanticColors } from '../../tokens/colors'
 
 export type TextProps = Omit<RNTextProps, 'style'> & {
@@ -31,10 +31,10 @@ export function Text({
   const resolvedColor =
     (color in theme.colors ? (theme.colors as Record<string, string>)[color] : color) as string
 
+  const resolvedWeight = weight ?? v.fontWeight
   const textStyle: TextStyle = {
-    fontFamily: theme.typography.fontFamily.sans,
+    fontFamily: fontFamilyByWeight[resolvedWeight] ?? theme.typography.fontFamily.sans,
     fontSize: v.fontSize,
-    fontWeight: (weight ?? v.fontWeight) as any,
     lineHeight: v.lineHeight,
     letterSpacing: v.letterSpacing,
     textTransform: v.textTransform,
