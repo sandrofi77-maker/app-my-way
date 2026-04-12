@@ -43,3 +43,6 @@ yarn-error.*
 
 # Claude Code local settings (may contain sensitive tokens)
 .claude/
+
+# Local AI agent skills
+.agents/

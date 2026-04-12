@@ -56,6 +56,7 @@ export default function LoginScreen() {
   const theme = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isRegister, setIsRegister] = useState(false)
 
@@ -144,11 +145,29 @@ export default function LoginScreen() {
             )}
           </HStack>
           <Input
-            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+            placeholder="Digite sua senha"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
             size="lg"
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType={isRegister ? 'newPassword' : 'password'}
+            autoComplete={isRegister ? 'new-password' : 'current-password'}
+            rightIcon={(
+              <Pressable
+                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                onPress={() => setShowPassword((prev) => !prev)}
+                disabled={loading}
+                style={{ paddingVertical: 4, paddingHorizontal: 2 }}
+              >
+                <Icon
+                  name={showPassword ? 'visibility-off' : 'visibility'}
+                  size={20}
+                  color={theme.colors.textTertiary}
+                />
+              </Pressable>
+            )}
           />
         </VStack>
 
