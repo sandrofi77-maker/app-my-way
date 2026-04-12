@@ -635,7 +635,7 @@ export default function TripDetailScreen() {
     <>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={[styles.heroCard, isDesktop && styles.heroCardDesktop]}>
-          <View style={styles.heroImageWrap}>
+          <View style={[styles.heroImageWrap, !isDesktop && styles.heroImageWrapMobile]}>
             {trip.cover_image ? (
               <Image source={{ uri: trip.cover_image }} style={styles.heroImage} resizeMode="cover" />
             ) : (
@@ -1271,6 +1271,9 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 32 / 9,
     position: 'relative',
+  },
+  heroImageWrapMobile: {
+    aspectRatio: (32 / 9) / 2.5,
   },
   heroImage: { width: '100%', height: '100%' as any },
   heroPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ECECF0' },
