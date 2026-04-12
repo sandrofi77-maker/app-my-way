@@ -12,7 +12,7 @@ import { formatBRL } from '../../lib/currency'
 import NewTripSheet from '../../components/NewTripSheet'
 import {
   Box, Text, HStack, VStack, Card, Badge, Button, Pressable,
-  Skeleton, EmptyState, FAB, Divider, Avatar, useTheme, IconButton,
+  Skeleton, EmptyState, FAB, Avatar, useTheme, IconButton,
 } from '../../design-system'
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
@@ -258,6 +258,44 @@ export default function HomeScreen() {
     const budgetRatio = item.budget ? item.expenseTotal / item.budget : 0
     const budgetColor = budgetRatio >= 0.9 ? theme.colors.error : budgetRatio >= 0.75 ? '#FF9500' : theme.colors.success
     const budgetPct = Math.round(Math.min(budgetRatio * 100, 100))
+    const currencyLabel = item.budget_currency || 'R$'
+    const remainingAmount = Math.max((item.budget || 0) - item.expenseTotal, 0)
+    const exceededAmount = Math.max(item.expenseTotal - (item.budget || 0), 0)
+    const remainingLabel = exceededAmount > 0
+      ? `${currencyLabel} ${formatBRL(exceededAmount)} excedido`
+      : `${currencyLabel} ${formatBRL(remainingAmount)} restante`
+
+    const budgetPanel = item.budget != null ? (
+      <View style={styles.budgetPanel}>
+        <HStack justifyContent="space-between" alignItems="center">
+          <Text variant={isDesktop ? 'body' : 'bodySmall'} weight="600" color="textSecondary">Orçamento da viagem</Text>
+        </HStack>
+
+        <HStack mt={3} gap={isDesktop ? 6 : 4}>
+          <VStack gap={0.5} flex={1}>
+            <Text variant="overline" color="textTertiary">GASTO</Text>
+            <Text variant={isDesktop ? 'title' : 'body'} weight="700" style={{ color: budgetColor }}>
+              {currencyLabel} {formatBRL(item.expenseTotal)}
+            </Text>
+          </VStack>
+          <VStack gap={0.5} flex={1} alignItems="flex-end">
+            <Text variant="overline" color="textTertiary">PLANEJADO</Text>
+            <Text variant={isDesktop ? 'title' : 'body'} weight="700">
+              {currencyLabel} {formatBRL(item.budget)}
+            </Text>
+          </VStack>
+        </HStack>
+
+        <View style={styles.budgetTrack}>
+          <View style={[styles.budgetBar, { width: `${budgetPct}%` as any, backgroundColor: budgetColor }]} />
+        </View>
+
+        <HStack justifyContent="space-between" alignItems="center" mt={1.5}>
+          <Text variant="caption" weight="600" color="textTertiary">{budgetPct}% consumido</Text>
+          <Text variant="caption" weight="600" color="textTertiary">{remainingLabel}</Text>
+        </HStack>
+      </View>
+    ) : null
 
     if (isDesktop) {
       return (
@@ -281,49 +319,23 @@ export default function HomeScreen() {
             </Box>
           </View>
 
-          <VStack flex={1} px={8} py={7} justifyContent="space-between">
-            <VStack gap={1.5} mb={2.5}>
-              <Text variant="h3" weight="800" numberOfLines={1}>{item.destination}</Text>
+          <VStack flex={1} px={7} py={6} gap={3}>
+            <VStack gap={1.5}>
+              <Text variant="h2" weight="800" numberOfLines={1}>{item.destination}</Text>
               <Text variant="body" color="textSecondary" numberOfLines={1}>{item.title}</Text>
             </VStack>
 
             {(item.start_date || item.end_date) && (
               <HStack gap={1.5} alignItems="center">
-                <Icon name="event" size={16} color={theme.colors.textTertiary} />
-                <Text variant="bodySmall" color="textTertiary">
+                <Icon name="event" size={18} color={theme.colors.brand} />
+                <Text variant="title" weight="600" color="textSecondary">
                   {formatDate(item.start_date)}
                   {item.end_date ? ` \u2014 ${formatDate(item.end_date)}` : ''}
                 </Text>
               </HStack>
             )}
 
-            {item.budget != null && (
-              <>
-                <Divider />
-                <VStack gap={2}>
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <HStack gap={1.5} alignItems="center">
-                      <Icon name="payments" size={15} color={theme.colors.textTertiary} />
-                      <Text variant="overline" color="textTertiary">Gastos</Text>
-                    </HStack>
-                    <Box bg="surfaceHigh" borderRadius="sm" px={2.5} py={0.5}>
-                      <Text variant="bodySmall" weight="700" style={{ color: budgetColor }}>{budgetPct}%</Text>
-                    </Box>
-                  </HStack>
-                  <HStack alignItems="baseline">
-                    <Text variant="h4" style={{ color: budgetColor }}>
-                      {item.budget_currency || 'R$'} {formatBRL(item.expenseTotal)}
-                    </Text>
-                    <Text variant="body" color="textTertiary">
-                      {' '}de {item.budget_currency || 'R$'} {formatBRL(item.budget)}
-                    </Text>
-                  </HStack>
-                  <View style={styles.budgetTrack}>
-                    <View style={[styles.budgetBar, { width: `${budgetPct}%` as any, backgroundColor: budgetColor }]} />
-                  </View>
-                </VStack>
-              </>
-            )}
+            {budgetPanel}
           </VStack>
         </Pressable>
       )
@@ -350,35 +362,25 @@ export default function HomeScreen() {
             </Box>
           </View>
 
-          <VStack gap={1} p={4} pt={3.5}>
-            <Text variant="title" weight="800" numberOfLines={1}>{item.destination}</Text>
+          <VStack gap={1.5} p={4} pt={3.5}>
+            <Text variant="h3" weight="800" numberOfLines={1}>{item.destination}</Text>
             <Text variant="body" color="textSecondary" numberOfLines={1}>{item.title}</Text>
 
             {(item.start_date || item.end_date) && (
-              <HStack gap={1.5} alignItems="center" mt={1}>
-                <Icon name="event" size={14} color={theme.colors.textTertiary} />
-                <Text variant="bodySmall" color="textTertiary">
+              <HStack gap={1.5} alignItems="center" mt={1.5}>
+                <Icon name="event" size={16} color={theme.colors.brand} />
+                <Text variant="bodySmall" weight="600" color="textSecondary">
                   {formatDate(item.start_date)}
                   {item.end_date ? ` \u2014 ${formatDate(item.end_date)}` : ''}
                 </Text>
               </HStack>
             )}
 
-            {item.budget != null && (
-              <VStack gap={1.5} mt={2.5}>
-                <HStack alignItems="baseline">
-                  <Text variant="body" weight="700">{item.budget_currency || 'R$'} {formatBRL(item.expenseTotal)}</Text>
-                  <Text variant="bodySmall" color="textTertiary"> / {formatBRL(item.budget)}</Text>
-                </HStack>
-                <View style={styles.budgetTrack}>
-                  <View style={[styles.budgetBar, { width: `${Math.min(budgetRatio * 100, 100)}%` as any, backgroundColor: budgetColor }]} />
-                </View>
-              </VStack>
-            )}
+            {budgetPanel}
           </VStack>
         </Pressable>
         {daysBetween !== null && (
-          <Box alignItems="center" mb={4} mt={-1}>
+          <Box alignItems="center" mb={4} mt={0} style={{ marginTop: -4 }}>
             <Text variant="caption" color="textTertiary" style={{ backgroundColor: theme.colors.background, paddingHorizontal: 12 }}>
               {daysBetween} {daysBetween === 1 ? 'dia' : 'dias'} entre viagens
             </Text>
@@ -500,27 +502,41 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    marginBottom: 20,
+    borderRadius: 20,
+    marginBottom: 22,
     overflow: 'hidden',
   },
-  cardImgWrap: { width: '100%', aspectRatio: 3 / 2, position: 'relative', overflow: 'hidden' },
+  cardImgWrap: { width: '100%', aspectRatio: 16 / 10, position: 'relative', overflow: 'hidden' },
   cardImgFill: { width: '100%', height: '100%' },
   cardDesktop: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 20,
-    marginBottom: 20,
+    borderRadius: 24,
+    marginBottom: 22,
     overflow: 'hidden',
-    minHeight: 220,
+    minHeight: 260,
     ...Platform.select({
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.09, shadowRadius: 14 },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 18 },
     }),
   },
   cardImgWrapDesktop: {
-    width: 340, flexShrink: 0,
+    width: 360,
+    flexShrink: 0,
     position: 'relative', overflow: 'hidden',
   },
-  budgetTrack: { height: 5, backgroundColor: '#ECECF0', borderRadius: 4, overflow: 'hidden' },
-  budgetBar: { height: 5, borderRadius: 4 },
+  budgetPanel: {
+    backgroundColor: '#F7F8FA',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 2,
+  },
+  budgetTrack: {
+    height: 6,
+    backgroundColor: '#E9EDF3',
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  budgetBar: { height: 6, borderRadius: 999 },
 })
