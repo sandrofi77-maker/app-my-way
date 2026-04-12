@@ -1,4 +1,4 @@
-﻿import {
+import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Image, Modal, Platform,
   TextInput, ActivityIndicator, Pressable,
@@ -1269,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   heroImageWrap: {
     width: '100%',
-    aspectRatio: 32 / 9,
+    aspectRatio: 32 / 27,
     position: 'relative',
   },
   heroImageWrapMobile: {
