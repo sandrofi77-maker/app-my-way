@@ -48,14 +48,19 @@ export default function ChecklistScreen() {
   const [newTitle, setNewTitle] = useState('')
   const [newCategory, setNewCategory] = useState('outros')
   const [saving, setSaving] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useFocusEffect(useCallback(() => { loadItems() }, []))
 
   async function loadItems() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    setUserId(user.id)
     const { data } = await supabase
       .from('trip_checklists')
       .select('*')
       .eq('trip_id', tripId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: true })
     setItems((data || []) as ChecklistItem[])
   }
@@ -82,12 +87,11 @@ export default function ChecklistScreen() {
   }
 
   async function handleAddItem() {
-    if (!newTitle.trim()) return
+    if (!newTitle.trim() || !userId) return
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
     const { data, error } = await supabase.from('trip_checklists').insert({
       trip_id: tripId,
-      user_id: user?.id,
+      user_id: userId,
       title: newTitle.trim(),
       category: newCategory,
       is_done: false,
@@ -102,14 +106,14 @@ export default function ChecklistScreen() {
   }
 
   async function handleAddTemplate(categoryKey: string) {
-    const { data: { user } } = await supabase.auth.getUser()
+    if (!userId) return
     const templateItems = TEMPLATES[categoryKey] || []
     const existingTitles = new Set(items.map(i => i.title.toLowerCase()))
     const toInsert = templateItems
       .filter(t => !existingTitles.has(t.toLowerCase()))
       .map(title => ({
         trip_id: tripId as string,
-        user_id: user?.id as string,
+        user_id: userId,
         title,
         category: categoryKey,
         is_done: false,
