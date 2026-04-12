@@ -1,6 +1,5 @@
 import { Stack } from 'expo-router'
 import { Text as RNText, TextInput } from 'react-native'
-import { Colors } from '../constants/Colors'
 import { useFonts } from 'expo-font'
 import {
   Roboto_400Regular,
@@ -11,6 +10,7 @@ import {
 } from '@expo-google-fonts/roboto'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect } from 'react'
+import { ThemeProvider, useTheme } from '../design-system'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -30,6 +30,19 @@ if (origInputRender) {
   }
 }
 
+function InnerLayout() {
+  const theme = useTheme()
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: theme.colors.background },
+      }}
+    />
+  )
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Roboto_400Regular,
@@ -46,11 +59,8 @@ export default function RootLayout() {
   if (!fontsLoaded) return null
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: Colors.dark.background },
-      }}
-    />
+    <ThemeProvider defaultMode="light">
+      <InnerLayout />
+    </ThemeProvider>
   )
 }

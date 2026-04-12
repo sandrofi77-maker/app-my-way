@@ -1,19 +1,59 @@
-import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Platform, useWindowDimensions
-} from 'react-native'
+import { View, StyleSheet, ScrollView, Platform, useWindowDimensions } from 'react-native'
 import { useState } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
-import { Colors } from '../constants/Colors'
 import { t } from '../lib/i18n'
 import { showAlert } from '../lib/alert'
 import KeyboardView from '../components/KeyboardView'
 import Icon from '../components/Icon'
+import {
+  Box, Text, VStack, HStack, Input, Button, Divider, useTheme, Pressable,
+} from '../design-system'
 
-const C = Colors.dark
+function BackgroundDecor() {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={bgStyles.blob1} />
+      <View style={bgStyles.blob2} />
+      <View style={bgStyles.blob3} />
+      <View style={bgStyles.ring1} />
+      <View style={bgStyles.ring2} />
+    </View>
+  )
+}
+
+const bgStyles = StyleSheet.create({
+  blob1: {
+    position: 'absolute', top: '5%' as any, left: '-5%' as any,
+    width: 400, height: 400, borderRadius: 200,
+    backgroundColor: 'rgba(98,87,221,0.07)',
+  },
+  blob2: {
+    position: 'absolute', bottom: '5%' as any, right: '-8%' as any,
+    width: 350, height: 350, borderRadius: 175,
+    backgroundColor: 'rgba(0,122,255,0.05)',
+  },
+  blob3: {
+    position: 'absolute', top: '40%' as any, right: '20%' as any,
+    width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(42,189,110,0.04)',
+  },
+  ring1: {
+    position: 'absolute', top: '15%' as any, left: '10%' as any,
+    width: 300, height: 300, borderRadius: 150,
+    borderWidth: 1, borderColor: 'rgba(98,87,221,0.06)',
+    backgroundColor: 'transparent',
+  },
+  ring2: {
+    position: 'absolute', bottom: '10%' as any, right: '5%' as any,
+    width: 250, height: 250, borderRadius: 125,
+    borderWidth: 1, borderColor: 'rgba(0,122,255,0.05)',
+    backgroundColor: 'transparent',
+  },
+})
 
 export default function LoginScreen() {
+  const theme = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -60,130 +100,140 @@ export default function LoginScreen() {
   }
 
   const { width } = useWindowDimensions()
-  const isDesktop = Platform.OS === 'web' && width >= 1024
+  const isDesktop = Platform.OS === 'web' && width >= 768
+
+  const formContent = (
+    <VStack gap={6}>
+      {/* Branding */}
+      <Box alignItems="center" mb={6}>
+        <HStack gap={2.5} mb={3} alignItems="center">
+          <Box
+            width={40} height={40} borderRadius="lg"
+            bg="brand" alignItems="center" justifyContent="center"
+          >
+            <Icon name="flight" size={20} color="#fff" />
+          </Box>
+          <Text variant="h2" weight="800">MyWay</Text>
+        </HStack>
+        <Text variant="body" color="textSecondary">
+          {isRegister ? 'Crie sua conta para comecar' : 'Entre na sua conta'}
+        </Text>
+      </Box>
+
+      <Divider />
+
+      {/* Form */}
+      <VStack gap={4}>
+        <Input
+          label="Email"
+          placeholder="seu@email.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          size="lg"
+        />
+
+        <VStack gap={1.5}>
+          <HStack justifyContent="space-between" alignItems="center">
+            <Text variant="label" color="textSecondary">Senha</Text>
+            {!isRegister && (
+              <Pressable onPress={handleResetPassword} disabled={loading}>
+                <Text variant="caption" color="accent">Esqueci a senha</Text>
+              </Pressable>
+            )}
+          </HStack>
+          <Input
+            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            size="lg"
+          />
+        </VStack>
+
+        <Box mt={2}>
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={loading}
+            onPress={handleAuth}
+          >
+            {isRegister ? 'Criar conta' : 'Entrar'}
+          </Button>
+        </Box>
+      </VStack>
+
+      {/* Footer */}
+      <VStack gap={4} mt={3} alignItems="center">
+        <HStack gap={3} alignItems="center" style={{ width: '100%' }}>
+          <Box flex={1} height={1} bg="divider" />
+          <Text variant="caption" color="textTertiary">ou</Text>
+          <Box flex={1} height={1} bg="divider" />
+        </HStack>
+        <Pressable onPress={() => setIsRegister(!isRegister)}>
+          <Text variant="bodySmall" color="textSecondary" align="center">
+            {isRegister ? 'Ja tenho conta \u2014 ' : 'Nao tenho conta \u2014 '}
+            <Text variant="bodySmall" color="accent" weight="600">
+              {isRegister ? 'fazer login' : 'cadastrar'}
+            </Text>
+          </Text>
+        </Pressable>
+      </VStack>
+    </VStack>
+  )
+
+  if (isDesktop) {
+    return (
+      <Box flex={1} bg="background" overflow="hidden">
+        <BackgroundDecor />
+        <ScrollView
+          contentContainerStyle={styles.desktopScroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Box
+            bg="surface" borderRadius="3xl" p={11}
+            maxWidth={440} width="100%"
+            shadow="lg" borderWidth={1} borderColor="border"
+          >
+            {formContent}
+          </Box>
+          <Box mt={8}>
+            <Text variant="caption" color="textTertiary" align="center">
+              MyWay — Planeje suas viagens com facilidade
+            </Text>
+          </Box>
+        </ScrollView>
+      </Box>
+    )
+  }
 
   return (
-    <KeyboardView style={styles.container}>
-      {isDesktop ? (
-        <View style={styles.desktopRow}>
-          {/* Left: branding */}
-          <View style={styles.desktopLeft}>
-            <View style={styles.desktopBrand}>
-              <View style={styles.desktopLogoIcon}>
-                <Icon name="flight" size={32} color="#fff" />
-              </View>
-              <Text style={styles.desktopLogoText}>MyWay</Text>
-              <Text style={styles.desktopTagline}>Planeje suas viagens com facilidade.{'\n'}Roteiros, voos, hospedagem e gastos{'\n'}em um so lugar.</Text>
-            </View>
-          </View>
-          {/* Right: form card */}
-          <View style={styles.desktopRight}>
-            <View style={styles.desktopCard}>
-              <Text style={styles.desktopCardTitle}>
-                {isRegister ? 'Criar conta' : 'Bem-vindo de volta'}
-              </Text>
-              <Text style={styles.desktopCardSubtitle}>
-                {isRegister ? 'Preencha seus dados para comecar' : 'Entre na sua conta para continuar'}
-              </Text>
-              <View style={styles.form}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput style={styles.input} placeholder="seu@email.com" placeholderTextColor={C.tertiary} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-                <Text style={styles.label}>Senha</Text>
-                <TextInput style={styles.input} placeholder="••••••••" placeholderTextColor={C.tertiary} value={password} onChangeText={setPassword} secureTextEntry />
-                <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleAuth} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{isRegister ? 'Criar conta' : 'Entrar'}</Text>}
-                </TouchableOpacity>
-                {!isRegister && (
-                  <TouchableOpacity onPress={handleResetPassword} disabled={loading}>
-                    <Text style={styles.forgotPassword}>Esqueci minha senha</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => setIsRegister(!isRegister)}>
-                  <Text style={styles.toggle}>{isRegister ? 'Já tenho conta — fazer login' : 'Não tenho conta — cadastrar'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.inner}>
-          <View style={styles.header}>
-            <Text style={styles.logo}>My Way</Text>
-            <Text style={styles.tagline}>Sua viagem, do seu jeito</Text>
-          </View>
-          <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput style={styles.input} placeholder="seu@email.com" placeholderTextColor={C.tertiary} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-            <Text style={styles.label}>Senha</Text>
-            <TextInput style={styles.input} placeholder="••••••••" placeholderTextColor={C.tertiary} value={password} onChangeText={setPassword} secureTextEntry />
-            <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleAuth} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{isRegister ? 'Criar conta' : 'Entrar'}</Text>}
-            </TouchableOpacity>
-            {!isRegister && (
-              <TouchableOpacity onPress={handleResetPassword} disabled={loading}>
-                <Text style={styles.forgotPassword}>Esqueci minha senha</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => setIsRegister(!isRegister)}>
-              <Text style={styles.toggle}>{isRegister ? 'Já tenho conta — fazer login' : 'Não tenho conta — cadastrar'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+    <KeyboardView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <ScrollView
+        contentContainerStyle={styles.mobileScroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {formContent}
+      </ScrollView>
     </KeyboardView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.background },
-
-  // ── Mobile ──
-  inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
-  header: { alignItems: 'center', marginBottom: 48 },
-  logo: { fontSize: 36, fontWeight: '700', color: C.primary, letterSpacing: -1 },
-  tagline: { fontSize: 14, color: C.secondary, marginTop: 6 },
-
-  // ── Desktop: split layout ──
-  desktopRow: { flex: 1, flexDirection: 'row' },
-  desktopLeft: {
-    flex: 1, backgroundColor: '#0F2F59',
-    alignItems: 'center', justifyContent: 'center', padding: 48,
+  desktopScroll: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    minHeight: '100%' as any,
   },
-  desktopBrand: { alignItems: 'center', maxWidth: 400 },
-  desktopLogoIcon: {
-    width: 64, height: 64, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+  mobileScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 48,
   },
-  desktopLogoText: { fontSize: 42, fontWeight: '800', color: '#fff', letterSpacing: -1, marginBottom: 16 },
-  desktopTagline: { fontSize: 16, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 24 },
-  desktopRight: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', padding: 48,
-  },
-  desktopCard: {
-    width: '100%', maxWidth: 420,
-    backgroundColor: C.surface, borderRadius: 20, padding: 40,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06, shadowRadius: 24, elevation: 8,
-  },
-  desktopCardTitle: { fontSize: 24, fontWeight: '700', color: C.primary, marginBottom: 4 },
-  desktopCardSubtitle: { fontSize: 14, color: C.secondary, marginBottom: 24 },
-
-  // ── Shared ──
-  form: { gap: 8 },
-  label: { fontSize: 13, color: C.secondary, marginBottom: 4, marginTop: 8 },
-  input: {
-    backgroundColor: C.surfaceHigh,
-    borderWidth: 0.5, borderColor: C.border,
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, color: C.primary,
-  },
-  button: {
-    backgroundColor: C.buttonPrimary, borderRadius: 12,
-    paddingVertical: 15, alignItems: 'center', marginTop: 16,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { fontSize: 15, fontWeight: '600', color: '#ffffff' },
-  forgotPassword: { color: C.secondary, fontSize: 13, textAlign: 'center', marginTop: 14 },
-  toggle: { color: C.accent, fontSize: 13, textAlign: 'center', marginTop: 16 },
 })

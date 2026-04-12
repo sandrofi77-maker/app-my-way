@@ -1,11 +1,7 @@
-﻿import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, ActivityIndicator
-} from 'react-native'
+import { ScrollView } from 'react-native'
 import { useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '../lib/supabase'
-import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
 import { applyDateMask, formatDateForInput, getLocalDatePlaceholder, toISODateOrNull } from '../lib/date-locale'
 import { t } from '../lib/i18n'
@@ -14,11 +10,14 @@ import { showAlert } from '../lib/alert'
 import KeyboardView from '../components/KeyboardView'
 import DesktopLayout from '../components/DesktopLayout'
 import { applyCurrencyMask, parseCurrencyInput, numberToCurrencyInput } from '../lib/currency'
+import {
+  Box, Text, VStack, HStack, Input, Button, useTheme, Pressable, IconButton,
+} from '../design-system'
 
-const C = Colors.dark
 const CURRENCIES = ['R$', 'USD', 'EUR', 'GBP']
 
 export default function EditTripScreen() {
+  const theme = useTheme()
   const {
     id,
     title: initialTitle,
@@ -46,20 +45,16 @@ export default function EditTripScreen() {
       showAlert(t('attention_title'), t('required_trip_fields'))
       return
     }
-
     const startDateISO = toISODateOrNull(startDate)
     const endDateISO = toISODateOrNull(endDate)
-
     if (startDate.trim() && !startDateISO) {
       showAlert(t('attention_title'), t('invalid_departure_date'))
       return
     }
-
     if (endDate.trim() && !endDateISO) {
       showAlert(t('attention_title'), t('invalid_return_date'))
       return
     }
-
     setLoading(true)
     try {
       const { error } = await supabase
@@ -74,7 +69,6 @@ export default function EditTripScreen() {
           budget_currency: budgetCurrency,
         })
         .eq('id', id)
-
       if (error) throw error
       router.back()
     } catch (err: any) {
@@ -86,120 +80,104 @@ export default function EditTripScreen() {
 
   return (
     <DesktopLayout>
-    <KeyboardView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Icon name="arrow-back" size={22} color={C.icon} />
-        </TouchableOpacity>
+      <KeyboardView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, maxWidth: 600, width: '100%', alignSelf: 'center' as any }}>
+          <Box mb={5}>
+            <IconButton accessibilityLabel="Voltar" onPress={() => router.back()} variant="ghost">
+              <Icon name="arrow-back" size={22} color={theme.colors.text} />
+            </IconButton>
+          </Box>
 
-        <Text style={styles.pageTitle}>Editar viagem</Text>
+          <Text variant="h3" style={{ marginBottom: 20 }}>Editar viagem</Text>
 
-        <Text style={styles.label}>Foto de capa</Text>
-        <ImagePickerComponent imageUri={imageUri} onImageSelected={setImageUri} uploadFolder="covers" onUploadingChange={setImageUploading} />
+          <VStack gap={4}>
+            <VStack gap={1.5}>
+              <Text variant="label" color="textSecondary">Foto de capa</Text>
+              <ImagePickerComponent imageUri={imageUri} onImageSelected={setImageUri} uploadFolder="covers" onUploadingChange={setImageUploading} />
+            </VStack>
 
-        <Text style={styles.label}>Nome da viagem *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Nome da viagem"
-          placeholderTextColor={C.tertiary}
-          value={title}
-          onChangeText={setTitle}
-        />
+            <Input
+              label="Nome da viagem *"
+              placeholder="Nome da viagem"
+              value={title}
+              onChangeText={setTitle}
+              size="lg"
+            />
 
-        <Text style={styles.label}>Destino *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Destino"
-          placeholderTextColor={C.tertiary}
-          value={destination}
-          onChangeText={setDestination}
-        />
+            <Input
+              label="Destino *"
+              placeholder="Destino"
+              value={destination}
+              onChangeText={setDestination}
+              size="lg"
+            />
 
-        <Text style={styles.label}>Data de ida</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={datePlaceholder}
-          placeholderTextColor={C.tertiary}
-          value={startDate}
-          onChangeText={(value) => setStartDate(applyDateMask(value))}
-          keyboardType="numeric"
-        />
+            <Input
+              label="Data de ida"
+              placeholder={datePlaceholder}
+              value={startDate}
+              onChangeText={(value) => setStartDate(applyDateMask(value))}
+              keyboardType="numeric"
+              size="lg"
+            />
 
-        <Text style={styles.label}>Data de volta</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={datePlaceholder}
-          placeholderTextColor={C.tertiary}
-          value={endDate}
-          onChangeText={(value) => setEndDate(applyDateMask(value))}
-          keyboardType="numeric"
-        />
+            <Input
+              label="Data de volta"
+              placeholder={datePlaceholder}
+              value={endDate}
+              onChangeText={(value) => setEndDate(applyDateMask(value))}
+              keyboardType="numeric"
+              size="lg"
+            />
 
-        <Text style={styles.label}>Orçamento total (opcional)</Text>
-        <View style={styles.budgetRow}>
-          <View style={styles.currencyScroll}>
-            {CURRENCIES.map(cur => (
-              <TouchableOpacity
-                key={cur}
-                style={[styles.currencyChip, budgetCurrency === cur && styles.currencyChipActive]}
-                onPress={() => setBudgetCurrency(cur)}
-                activeOpacity={0.8}
+            <VStack gap={2}>
+              <Text variant="label" color="textSecondary">Orcamento total (opcional)</Text>
+              <HStack gap={2}>
+                {CURRENCIES.map(cur => (
+                  <Pressable
+                    key={cur}
+                    onPress={() => setBudgetCurrency(cur)}
+                    style={{
+                      paddingHorizontal: 14, paddingVertical: 8,
+                      borderRadius: theme.radius.full,
+                      borderWidth: 1.5,
+                      borderColor: budgetCurrency === cur ? theme.colors.brand : theme.colors.border,
+                      backgroundColor: budgetCurrency === cur ? theme.colors.brand : theme.colors.surface,
+                    }}
+                  >
+                    <Text
+                      variant="label"
+                      color={budgetCurrency === cur ? 'textOnBrand' : 'textSecondary'}
+                    >
+                      {cur}
+                    </Text>
+                  </Pressable>
+                ))}
+              </HStack>
+              <Input
+                placeholder="0,00"
+                value={budget}
+                onChangeText={(text) => setBudget(applyCurrencyMask(text))}
+                keyboardType="numeric"
+                size="lg"
+              />
+            </VStack>
+
+            <Box mt={6} mb={10}>
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                loading={loading}
+                disabled={imageUploading}
+                onPress={handleSave}
               >
-                <Text style={[styles.currencyChipText, budgetCurrency === cur && styles.currencyChipTextActive]}>{cur}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <TextInput
-            style={[styles.input, styles.budgetInput]}
-            placeholder="0,00"
-            placeholderTextColor={C.tertiary}
-            value={budget}
-            onChangeText={(text) => setBudget(applyCurrencyMask(text))}
-            keyboardType="numeric"
-          />
-        </View>
-
-        <TouchableOpacity style={[styles.button, (loading || imageUploading) && styles.buttonDisabled]} onPress={handleSave} disabled={loading || imageUploading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Salvar alterações</Text>}
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardView>
+                Salvar alteracoes
+              </Button>
+            </Box>
+          </VStack>
+        </ScrollView>
+      </KeyboardView>
     </DesktopLayout>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.background },
-  scroll: { padding: 24, paddingTop: 60, maxWidth: 600, width: '100%', alignSelf: 'center' as any },
-  back: { marginBottom: 20 },
-  backText: { color: C.accent, fontSize: 14 },
-  pageTitle: { fontSize: 26, fontWeight: '700', color: C.primary, marginBottom: 20 },
-  label: { fontSize: 13, color: C.secondary, marginBottom: 6, marginTop: 14 },
-  input: {
-    backgroundColor: C.surface,
-    borderWidth: 0.5,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: C.primary,
-  },
-  button: {
-    backgroundColor: C.buttonPrimary,
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 40,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-  budgetRow: { gap: 8 },
-  currencyScroll: { flexDirection: 'row', gap: 8 },
-  currencyChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
-  currencyChipActive: { borderColor: C.primary, backgroundColor: C.primary },
-  currencyChipText: { fontSize: 13, fontWeight: '600', color: C.secondary },
-  currencyChipTextActive: { color: '#fff' },
-  budgetInput: { marginTop: 0 },
-})

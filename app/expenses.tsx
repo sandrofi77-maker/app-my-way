@@ -1,21 +1,18 @@
-import {
-  View, Text, TouchableOpacity,
-  StyleSheet, TextInput,
-  ScrollView
-} from 'react-native'
+import { View, ScrollView, StyleSheet } from 'react-native'
 import Icon from '../components/Icon'
 import { useState, useCallback } from 'react'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { supabase } from '../lib/supabase'
-import { Colors } from '../constants/Colors'
 import { t, getDeviceLocale } from '../lib/i18n'
 import { showAlert } from '../lib/alert'
 import SheetModal from '../components/SheetModal'
 import DesktopLayout from '../components/DesktopLayout'
 import HScrollable from '../components/HScrollable'
 import { formatBRL, applyCurrencyMask, parseCurrencyInput, numberToCurrencyInput } from '../lib/currency'
-
-const C = Colors.dark
+import {
+  Box, Text, VStack, HStack, Card, Input, Button, FAB,
+  EmptyState, Pressable, useTheme, IconButton,
+} from '../design-system'
 
 const CATEGORIES = [
   'Hospedagem', 'Alimentação', 'Transporte',
@@ -23,30 +20,20 @@ const CATEGORIES = [
 ]
 
 const EXPENSE_CATEGORY_CONF: Record<string, { icon: string; color: string }> = {
-  'Hospedagem': { icon: 'hotel',             color: '#5856D6' },
-  'Alimentação': { icon: 'restaurant',       color: '#FF9500' },
-  'Transporte':  { icon: 'directions-car',   color: '#32ADE6' },
-  'Passeios':    { icon: 'attractions',      color: '#34C759' },
-  'Compras':     { icon: 'shopping-bag',     color: '#AF52DE' },
-  'Saúde':       { icon: 'medical-services', color: '#FF2D55' },
-  'Outros':      { icon: 'payments',         color: '#8E8E93' },
+  'Hospedagem':  { icon: 'hotel',             color: '#5856D6' },
+  'Alimentação': { icon: 'restaurant',        color: '#FF9500' },
+  'Transporte':  { icon: 'directions-car',    color: '#32ADE6' },
+  'Passeios':    { icon: 'attractions',       color: '#34C759' },
+  'Compras':     { icon: 'shopping-bag',      color: '#AF52DE' },
+  'Saúde':       { icon: 'medical-services',  color: '#FF2D55' },
+  'Outros':      { icon: 'payments',          color: '#8E8E93' },
 }
-
 
 type Expense = {
-  id: string
-  category: string
-  amount: number
-  currency: string
-  description: string
-  date: string
-  image_url: string | null
+  id: string; category: string; amount: number; currency: string
+  description: string; date: string; image_url: string | null
 }
-
-type TripBudget = {
-  budget: number | null
-  budget_currency: string | null
-}
+type TripBudget = { budget: number | null; budget_currency: string | null }
 
 function formatExpenseDate(date: string) {
   if (!date) return '--'
@@ -55,12 +42,11 @@ function formatExpenseDate(date: string) {
     ? new Date(Number(onlyDate[1]), Number(onlyDate[2]) - 1, Number(onlyDate[3]))
     : new Date(date)
   if (Number.isNaN(parsedDate.getTime())) return date
-  return parsedDate.toLocaleDateString(getDeviceLocale(), {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  })
+  return parsedDate.toLocaleDateString(getDeviceLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export default function ExpensesScreen() {
+  const theme = useTheme()
   const { id: tripId, title: tripTitle, openNew } = useLocalSearchParams()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [tripBudget, setTripBudget] = useState<TripBudget>({ budget: null, budget_currency: null })
@@ -75,112 +61,66 @@ export default function ExpensesScreen() {
   const [saving, setSaving] = useState(false)
 
   useFocusEffect(useCallback(() => {
-    loadExpenses()
-    loadTripBudget()
+    loadExpenses(); loadTripBudget()
     if (openNew === '1') openNewExpense()
   }, [openNew]))
 
   async function loadExpenses() {
-    const { data, error } = await supabase
-      .from('expenses')
-      .select('*')
-      .eq('trip_id', tripId)
-      .order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('expenses').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })
     if (!error) setExpenses(data || [])
   }
 
   async function loadTripBudget() {
-    const { data } = await supabase
-      .from('trips')
-      .select('budget, budget_currency')
-      .eq('id', tripId)
-      .single()
+    const { data } = await supabase.from('trips').select('budget, budget_currency').eq('id', tripId).single()
     if (data) setTripBudget({ budget: data.budget ?? null, budget_currency: data.budget_currency ?? null })
   }
 
   function resetForm() {
-    setEditingExpenseId(null)
-    setAmount('')
-    setDescription('')
-    setCategory('Alimentação')
-    setCurrency('R$')
-    setDate(new Date().toISOString().split('T')[0])
-    setImageUri(null)
+    setEditingExpenseId(null); setAmount(''); setDescription(''); setCategory('Alimentação')
+    setCurrency('R$'); setDate(new Date().toISOString().split('T')[0]); setImageUri(null)
   }
 
-  function openNewExpense() {
-    resetForm()
-    setModalVisible(true)
-  }
+  function openNewExpense() { resetForm(); setModalVisible(true) }
 
   function openEditExpense(expense: Expense) {
-    setEditingExpenseId(expense.id)
-    setAmount(numberToCurrencyInput(expense.amount))
-    setDescription(expense.description || '')
-    setCategory(expense.category || 'Alimentação')
-    setCurrency(expense.currency || 'R$')
-    setDate(expense.date || new Date().toISOString().split('T')[0])
-    setImageUri(expense.image_url || null)
-    setModalVisible(true)
+    setEditingExpenseId(expense.id); setAmount(numberToCurrencyInput(expense.amount))
+    setDescription(expense.description || ''); setCategory(expense.category || 'Alimentação')
+    setCurrency(expense.currency || 'R$'); setDate(expense.date || new Date().toISOString().split('T')[0])
+    setImageUri(expense.image_url || null); setModalVisible(true)
   }
 
-  function handleCloseExpenseModal() {
-    setModalVisible(false)
-    resetForm()
-  }
+  function handleCloseExpenseModal() { setModalVisible(false); resetForm() }
 
   async function handleSave() {
     const parsedAmount = parseCurrencyInput(amount)
-    if (!amount || parsedAmount <= 0) {
-      showAlert(t('attention_title'), t('invalid_amount'))
-      return
-    }
+    if (!amount || parsedAmount <= 0) { showAlert(t('attention_title'), t('invalid_amount')); return }
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     const payload = {
-      trip_id: tripId,
-      user_id: user?.id,
-      amount: parsedAmount,
-      currency,
-      category,
-      description: description.trim(),
-      date: date || new Date().toISOString().split('T')[0],
-      image_url: imageUri || null,
+      trip_id: tripId, user_id: user?.id, amount: parsedAmount, currency, category,
+      description: description.trim(), date: date || new Date().toISOString().split('T')[0], image_url: imageUri || null,
     }
     const request = editingExpenseId
       ? supabase.from('expenses').update(payload).eq('id', editingExpenseId)
       : supabase.from('expenses').insert(payload)
     const { error } = await request
     setSaving(false)
-    if (!error) {
-      setModalVisible(false)
-      resetForm()
-      loadExpenses()
-    } else {
-      showAlert(t('error_title'), t('save_failed'))
-    }
+    if (!error) { setModalVisible(false); resetForm(); loadExpenses() }
+    else showAlert(t('error_title'), t('save_failed'))
   }
 
   async function handleDelete(expenseId: string) {
     showAlert(t('confirm_delete_expense_title'), t('confirm_delete_expense_body'), [
       { text: t('cancel_label'), style: 'cancel' },
-      {
-        text: t('delete_label'), style: 'destructive',
-        onPress: () => {
-          showAlert(t('confirm_delete_expense_second_title'), t('confirm_delete_expense_second_body'), [
-            { text: t('cancel_label'), style: 'cancel' },
-            {
-              text: t('delete_label'), style: 'destructive',
-              onPress: async () => {
-                await supabase.from('expenses').delete().eq('id', expenseId)
-                loadExpenses()
-                setModalVisible(false)
-                resetForm()
-              }
-            }
-          ])
-        }
-      }
+      { text: t('delete_label'), style: 'destructive', onPress: () => {
+        showAlert(t('confirm_delete_expense_second_title'), t('confirm_delete_expense_second_body'), [
+          { text: t('cancel_label'), style: 'cancel' },
+          { text: t('delete_label'), style: 'destructive', onPress: async () => {
+            await supabase.from('expenses').delete().eq('id', expenseId)
+            loadExpenses(); setModalVisible(false); resetForm()
+          }}
+        ])
+      }}
     ])
   }
 
@@ -188,7 +128,7 @@ export default function ExpensesScreen() {
   const budgetCur = tripBudget.budget_currency || 'R$'
   const budgetAmount = tripBudget.budget
   const budgetPct = budgetAmount && budgetAmount > 0 ? Math.min((total / budgetAmount) * 100, 100) : 0
-  const budgetBarColor = budgetPct >= 90 ? C.error : budgetPct >= 75 ? '#FF9500' : C.success
+  const budgetBarColor = budgetPct >= 90 ? theme.colors.error : budgetPct >= 75 ? '#FF9500' : theme.colors.success
   const budgetBalance = budgetAmount != null ? budgetAmount - total : null
 
   const categoryTotals = Object.entries(
@@ -198,286 +138,187 @@ export default function ExpensesScreen() {
 
   return (
     <DesktopLayout>
-    <View style={styles.container}>
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Icon name="arrow-back" size={22} color={C.icon} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Gastos</Text>
-          {tripTitle ? <Text style={styles.tripName} numberOfLines={1}>{tripTitle as string}</Text> : null}
-        </View>
-        <View style={{ width: 36 }} />
-      </View>
+      <Box flex={1} bg="background">
+        {/* Header */}
+        <Box bg="surface" borderBottomWidth={0.5} borderColor="border" px={5} pt={14} pb={4}>
+          <HStack alignItems="center">
+            <IconButton accessibilityLabel="Voltar" onPress={() => router.back()} variant="ghost">
+              <Icon name="arrow-back" size={22} color={theme.colors.text} />
+            </IconButton>
+            <Box flex={1} alignItems="center">
+              <Text variant="subtitle" weight="700">Gastos</Text>
+              {tripTitle ? <Text variant="caption" color="textSecondary" numberOfLines={1}>{tripTitle as string}</Text> : null}
+            </Box>
+            <Box width={36} />
+          </HStack>
+        </Box>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* ── Card de orçamento (só aparece se trip tem budget) ── */}
-        {budgetAmount != null && (
-          <View style={styles.budgetCard}>
-            <View style={styles.budgetCardHeader}>
-              <Text style={styles.budgetCardLabel}>Orçamento</Text>
-              <Text style={styles.budgetCardTotal}>
-                {budgetCur} {formatBRL(budgetAmount)}
-              </Text>
-            </View>
-            <View style={styles.budgetTrack}>
-              <View style={[styles.budgetBar, { width: `${budgetPct}%` as any, backgroundColor: budgetBarColor }]} />
-            </View>
-            <View style={styles.budgetFooter}>
-              <Text style={styles.budgetFooterLabel}>
-                Gasto: {budgetCur} {formatBRL(total)}
-              </Text>
-              <Text style={[styles.budgetFooterBalance, { color: (budgetBalance ?? 0) >= 0 ? C.success : C.error }]}>
-                {(budgetBalance ?? 0) >= 0 ? 'Saldo: ' : 'Excesso: '}{budgetCur} {formatBRL(Math.abs(budgetBalance ?? 0))}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* ── Bento: total + lançamentos ── */}
-        <View style={styles.bentoTotal}>
-          <Text style={styles.bentoTotalLabel}>Total gasto</Text>
-          <Text style={styles.bentoTotalValue} numberOfLines={1} adjustsFontSizeToFit>
-            R$ {formatBRL(total)}
-          </Text>
-          <Text style={styles.bentoCountInline}>{expenses.length} {expenses.length === 1 ? 'lançamento' : 'lançamentos'}</Text>
-        </View>
-
-        {/* ── Breakdown por categoria ── */}
-        {categoryTotals.length > 0 && (
-          <View style={styles.catBreakdownBlock}>
-            {categoryTotals.map(([cat, amt]) => {
-              const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
-              const pct = (amt / maxCat) * 100
-              return (
-                <View key={cat} style={styles.catBreakdownRow}>
-                  <View style={styles.catBreakdownLeft}>
-                    <Icon name={conf.icon as any} size={20} color={conf.color} />
-                    <Text style={styles.catBreakdownLabel} numberOfLines={1}>{cat}</Text>
-                  </View>
-                  <View style={styles.catBreakdownTrack}>
-                    <View style={[styles.catBreakdownBar, { width: `${pct}%` as any, backgroundColor: conf.color }]} />
-                  </View>
-                  <Text style={styles.catBreakdownAmt}>
-                    R$ {formatBRL(amt)}
-                  </Text>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+          {/* Budget card */}
+          {budgetAmount != null && (
+            <Card variant="outlined" style={{ marginHorizontal: 20, marginTop: 16 }}>
+              <VStack p={4} gap={2.5}>
+                <HStack justifyContent="space-between" alignItems="center">
+                  <Text variant="overline" color="textTertiary">Orcamento</Text>
+                  <Text variant="subtitle" weight="800">{budgetCur} {formatBRL(budgetAmount)}</Text>
+                </HStack>
+                <View style={styles.budgetTrack}>
+                  <View style={[styles.budgetBar, { width: `${budgetPct}%` as any, backgroundColor: budgetBarColor }]} />
                 </View>
-              )
-            })}
-          </View>
-        )}
-
-        {/* ── Lista de gastos ── */}
-        {expenses.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>Nenhum gasto registrado ainda</Text>
-          </View>
-        ) : (
-          <View style={styles.list}>
-            {expenses.map((item) => {
-              const conf = EXPENSE_CATEGORY_CONF[item.category] ?? EXPENSE_CATEGORY_CONF['Outros']
-              return (
-                <TouchableOpacity key={item.id} style={styles.expenseCard} onPress={() => openEditExpense(item)} activeOpacity={0.8}>
-                  <View style={[styles.expenseIconBadge, { backgroundColor: conf.color + '18' }]}>
-                    <Icon name={conf.icon as any} size={18} color={conf.color} />
-                  </View>
-                  <View style={styles.expenseInfo}>
-                    <Text style={[styles.expenseCategory, { color: conf.color }]}>{item.category}</Text>
-                    {item.description ? <Text style={styles.expenseDesc} numberOfLines={1}>{item.description}</Text> : null}
-                    <Text style={styles.expenseDate}>{formatExpenseDate(item.date)}</Text>
-                  </View>
-                  <Text style={styles.expenseAmount}>
-                    {item.currency === 'BRL' ? 'R$' : item.currency} {formatBRL(item.amount)}
+                <HStack justifyContent="space-between">
+                  <Text variant="caption" color="textSecondary">Gasto: {budgetCur} {formatBRL(total)}</Text>
+                  <Text variant="caption" weight="700" style={{ color: (budgetBalance ?? 0) >= 0 ? theme.colors.success : theme.colors.error }}>
+                    {(budgetBalance ?? 0) >= 0 ? 'Saldo: ' : 'Excesso: '}{budgetCur} {formatBRL(Math.abs(budgetBalance ?? 0))}
                   </Text>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-        )}
-      </ScrollView>
-?
-      {/* ── FAB ── */}
-      <TouchableOpacity style={styles.fab} onPress={openNewExpense} activeOpacity={0.85}>
-        <Icon name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+                </HStack>
+              </VStack>
+            </Card>
+          )}
 
-      {/* ── Modal ── */}
-      <SheetModal
-        visible={modalVisible}
-        onClose={handleCloseExpenseModal}
-        title={editingExpenseId ? 'Editar gasto' : 'Novo gasto'}
-        subtitle="Registre os detalhes do gasto"
-        onDelete={editingExpenseId ? () => handleDelete(editingExpenseId) : undefined}
-      >
+          {/* Bento total */}
+          <Card variant="outlined" style={{ marginHorizontal: 20, marginTop: 16 }}>
+            <VStack p={4}>
+              <Text variant="overline" color="textTertiary">Total gasto</Text>
+              <Text variant="display" numberOfLines={1}>R$ {formatBRL(total)}</Text>
+              <Text variant="caption" color="textTertiary" style={{ marginTop: 6 }}>
+                {expenses.length} {expenses.length === 1 ? 'lancamento' : 'lancamentos'}
+              </Text>
+            </VStack>
+          </Card>
 
-        {/* Valor */}
-        <Text style={styles.sheetLabel}>Valor *</Text>
-        <View style={styles.sheetInputRow}>
-          <Icon name="payments" size={20} color={C.secondary} />
-          <TextInput
-            style={styles.sheetInput}
+          {/* Category breakdown */}
+          {categoryTotals.length > 0 && (
+            <VStack gap={4} mx={5} mt={4} mb={1}>
+              {categoryTotals.map(([cat, amt]) => {
+                const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
+                const pct = (amt / maxCat) * 100
+                return (
+                  <HStack key={cat} gap={3} alignItems="center">
+                    <HStack gap={2} alignItems="center" style={{ width: 120 }}>
+                      <Icon name={conf.icon as any} size={20} color={conf.color} />
+                      <Text variant="body" color="textSecondary" numberOfLines={1} style={{ flex: 1 }}>{cat}</Text>
+                    </HStack>
+                    <View style={{ flex: 1, height: 10, backgroundColor: theme.colors.surfaceHigh, borderRadius: 6, overflow: 'hidden' }}>
+                      <View style={{ height: 10, borderRadius: 6, width: `${pct}%` as any, backgroundColor: conf.color }} />
+                    </View>
+                    <Text variant="bodySmall" weight="700" style={{ width: 76, textAlign: 'right' }}>R$ {formatBRL(amt)}</Text>
+                  </HStack>
+                )
+              })}
+            </VStack>
+          )}
+
+          {/* Expense list */}
+          {expenses.length === 0 ? (
+            <Box mt={12}>
+              <EmptyState title="Nenhum gasto registrado ainda" />
+            </Box>
+          ) : (
+            <VStack gap={2} px={5} pt={2}>
+              {expenses.map((item) => {
+                const conf = EXPENSE_CATEGORY_CONF[item.category] ?? EXPENSE_CATEGORY_CONF['Outros']
+                return (
+                  <Pressable key={item.id} onPress={() => openEditExpense(item)}>
+                    <Card variant="outlined">
+                      <HStack p={3.5} gap={3} alignItems="center">
+                        <Box
+                          width={40} height={40} borderRadius="lg"
+                          alignItems="center" justifyContent="center"
+                          bg={conf.color + '18'}
+                        >
+                          <Icon name={conf.icon as any} size={18} color={conf.color} />
+                        </Box>
+                        <VStack flex={1}>
+                          <Text variant="bodySmall" weight="700" style={{ color: conf.color }}>{item.category}</Text>
+                          {item.description ? <Text variant="caption" color="textSecondary" numberOfLines={1}>{item.description}</Text> : null}
+                          <Text variant="caption" color="textTertiary">{formatExpenseDate(item.date)}</Text>
+                        </VStack>
+                        <Text variant="body" weight="700">
+                          {item.currency === 'BRL' ? 'R$' : item.currency} {formatBRL(item.amount)}
+                        </Text>
+                      </HStack>
+                    </Card>
+                  </Pressable>
+                )
+              })}
+            </VStack>
+          )}
+        </ScrollView>
+
+        <FAB accessibilityLabel="Novo gasto" onPress={openNewExpense}>
+          <Icon name="add" size={28} color="#fff" />
+        </FAB>
+
+        {/* Modal */}
+        <SheetModal
+          visible={modalVisible}
+          onClose={handleCloseExpenseModal}
+          title={editingExpenseId ? 'Editar gasto' : 'Novo gasto'}
+          subtitle="Registre os detalhes do gasto"
+          onDelete={editingExpenseId ? () => handleDelete(editingExpenseId) : undefined}
+        >
+          <Input
+            label="Valor *"
             placeholder="0,00"
-            placeholderTextColor={C.tertiary}
             value={amount}
             onChangeText={(text) => setAmount(applyCurrencyMask(text))}
             keyboardType="numeric"
+            size="lg"
+            leftIcon={<Icon name="payments" size={20} color={theme.colors.textSecondary} />}
           />
-        </View>
 
-        {/* Categoria */}
-        <Text style={styles.sheetLabel}>Categoria</Text>
-        <HScrollable contentContainerStyle={styles.categoryChipsRow}>
-          {CATEGORIES.map(cat => {
-            const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
-            const active = category === cat
-            return (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.categoryChip, active && { borderColor: conf.color, backgroundColor: conf.color + '14' }]}
-                onPress={() => setCategory(cat)}
-                activeOpacity={0.8}
-              >
-                <Icon name={conf.icon as any} size={14} color={active ? conf.color : C.secondary} />
-                <Text style={[styles.categoryChipText, active && { color: conf.color, fontWeight: '700' }]}>{cat}</Text>
-              </TouchableOpacity>
-            )
-          })}
-        </HScrollable>
+          <VStack gap={2} mt={4}>
+            <Text variant="overline" color="textSecondary">Categoria</Text>
+            <HScrollable contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
+              {CATEGORIES.map(cat => {
+                const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
+                const active = category === cat
+                return (
+                  <Pressable
+                    key={cat}
+                    onPress={() => setCategory(cat)}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                      paddingHorizontal: 14, paddingVertical: 9,
+                      borderRadius: theme.radius.full,
+                      borderWidth: 1.5,
+                      borderColor: active ? conf.color : theme.colors.border,
+                      backgroundColor: active ? conf.color + '14' : theme.colors.surfaceHigh,
+                    }}
+                  >
+                    <Icon name={conf.icon as any} size={14} color={active ? conf.color : theme.colors.textSecondary} />
+                    <Text variant="bodySmall" weight={active ? '700' : '600'} style={{ color: active ? conf.color : theme.colors.textSecondary }}>
+                      {cat}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </HScrollable>
+          </VStack>
 
-        {/* Descrição */}
-        <Text style={styles.sheetLabel}>Descrição</Text>
-        <View style={styles.sheetInputRow}>
-          <Icon name="notes" size={20} color={C.secondary} />
-          <TextInput
-            style={styles.sheetInput}
-            placeholder="Ex: Almoço no restaurante"
-            placeholderTextColor={C.tertiary}
-            value={description}
-            onChangeText={setDescription}
-          />
-        </View>
+          <Box mt={4}>
+            <Input
+              label="Descricao"
+              placeholder="Ex: Almoco no restaurante"
+              value={description}
+              onChangeText={setDescription}
+              size="lg"
+              leftIcon={<Icon name="notes" size={20} color={theme.colors.textSecondary} />}
+            />
+          </Box>
 
-        {/* Salvar */}
-        <TouchableOpacity style={styles.primaryBtn} onPress={handleSave} disabled={saving}>
-          <Text style={styles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar gasto'}</Text>
-        </TouchableOpacity>
-      </SheetModal>
-    </View>
+          <Box mt={6}>
+            <Button variant="primary" size="lg" fullWidth loading={saving} onPress={handleSave}>
+              Salvar gasto
+            </Button>
+          </Box>
+        </SheetModal>
+      </Box>
     </DesktopLayout>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.background },
-
-  // Header
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16,
-    backgroundColor: C.surface, borderBottomWidth: 0.5, borderBottomColor: C.border,
-  },
-  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: C.primary },
-  tripName: { fontSize: 12, color: C.secondary, marginTop: 1, maxWidth: 180 },
-
-  // Budget card
-  budgetCard: { marginHorizontal: 20, marginTop: 16, backgroundColor: C.surface, borderRadius: 14, padding: 16, borderWidth: 0.5, borderColor: C.border },
-  budgetCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  budgetCardLabel: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 0.8 },
-  budgetCardTotal: { fontSize: 16, fontWeight: '800', color: C.primary },
-  budgetTrack: { height: 8, backgroundColor: C.surfaceHigh, borderRadius: 6, overflow: 'hidden', marginBottom: 10 },
+  budgetTrack: { height: 8, backgroundColor: '#ECECF0', borderRadius: 6, overflow: 'hidden' },
   budgetBar: { height: 8, borderRadius: 6 },
-  budgetFooter: { flexDirection: 'row', justifyContent: 'space-between' },
-  budgetFooterLabel: { fontSize: 12, color: C.secondary },
-  budgetFooterBalance: { fontSize: 12, fontWeight: '700' },
-
-  // Bento summary
-  bentoRow: { flexDirection: 'row', gap: 10, marginHorizontal: 20, marginTop: 16, marginBottom: 4 },
-  bentoTotal: { marginHorizontal: 20, marginTop: 16, backgroundColor: C.surface, borderRadius: 14, padding: 16, borderWidth: 0.5, borderColor: C.border },
-  bentoTotalLabel: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
-  bentoTotalValue: { fontSize: 28, fontWeight: '800', color: C.primary },
-  bentoCountInline: { fontSize: 12, color: C.tertiary, marginTop: 6 },
-
-  // Category breakdown
-  catBreakdownBlock: { marginHorizontal: 20, marginTop: 16, marginBottom: 4, gap: 16 },
-  catBreakdownRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  catBreakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, width: 120 },
-  catBreakdownLabel: { fontSize: 14, color: C.secondary, flex: 1 },
-  catBreakdownTrack: { flex: 1, height: 10, backgroundColor: C.surfaceHigh, borderRadius: 6, overflow: 'hidden' },
-  catBreakdownBar: { height: 10, borderRadius: 6 },
-  catBreakdownAmt: { fontSize: 13, fontWeight: '700', color: C.primary, width: 76, textAlign: 'right' },
-
-  // Category carousel
-  categoriesCarousel: { paddingHorizontal: 20, paddingBottom: 14, paddingTop: 12, gap: 10 },
-  categoryCard: {
-    width: 112, height: 130, borderRadius: 18,
-    backgroundColor: C.surface, padding: 14,
-    alignItems: 'flex-start', justifyContent: 'flex-end',
-    borderWidth: 0.5, borderColor: C.border,
-  },
-  categoryIconBadge: {
-    width: 44, height: 44, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
-  },
-  categoryAmount: { fontSize: 13, fontWeight: '700', color: C.primary, marginBottom: 2 },
-  categoryAmountActive: { color: '#fff' },
-  categoryLabel: { fontSize: 11, fontWeight: '600', color: C.secondary },
-  categoryLabelActive: { color: 'rgba(255,255,255,0.85)' },
-
-  // Expense list
-  scrollContent: { paddingBottom: 120 },
-  list: { paddingHorizontal: 20, paddingTop: 8 },
-  empty: { alignItems: 'center', paddingTop: 48 },
-  emptyText: { color: C.tertiary, fontSize: 13 },
-  expenseCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.surface, borderRadius: 14, padding: 14,
-    marginBottom: 8, borderWidth: 0.5, borderColor: C.border,
-  },
-  expenseIconBadge: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  expenseInfo: { flex: 1 },
-  expenseCategory: { fontSize: 13, fontWeight: '700', marginBottom: 1 },
-  expenseDesc: { fontSize: 12, color: C.secondary, marginTop: 1 },
-  expenseDate: { fontSize: 11, color: C.tertiary, marginTop: 2 },
-  expenseAmount: { fontSize: 14, fontWeight: '700', color: C.primary },
-
-  // FAB
-  fab: {
-    position: 'absolute', bottom: 36, right: 24,
-    width: 58, height: 58, borderRadius: 18, backgroundColor: C.buttonPrimary,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6,
-  },
-
-  // Sheet modal
-  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
-  sheetContainer: { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '92%' },
-  modalHandle: { width: 48, height: 6, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.1)', alignSelf: 'center', marginBottom: 24 },
-  sheetHeaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4 },
-  sheetScroll: { paddingHorizontal: 24, paddingBottom: 34 },
-  modalTitle: { fontSize: 22, fontWeight: '800', color: C.primary, marginBottom: 2 },
-  modalSubtitle: { fontSize: 14, color: C.secondary, marginBottom: 4 },
-  sheetLabel: { fontSize: 10, fontWeight: '700', color: C.secondary, textTransform: 'uppercase', letterSpacing: 1.5, marginLeft: 4, marginBottom: 8, marginTop: 16 },
-  sheetInputRow: { backgroundColor: C.surfaceHigh, borderRadius: 16, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 4 },
-  sheetInput: { flex: 1, fontSize: 15, color: C.primary, marginLeft: 10, paddingVertical: 14, padding: 0 },
-
-  // Category chips (modal)
-  categoryChipsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
-  categoryChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 9,
-    borderRadius: 24, borderWidth: 1.5, borderColor: C.border,
-    backgroundColor: C.surfaceHigh,
-  },
-  categoryChipText: { fontSize: 13, fontWeight: '600', color: C.secondary },
-
-  // Buttons
-  primaryBtn: {
-    backgroundColor: C.buttonPrimary, borderRadius: 16, paddingVertical: 18,
-    alignItems: 'center', marginTop: 24,
-    shadowColor: C.buttonPrimary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
-  },
-  primaryBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 })

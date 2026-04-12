@@ -1,21 +1,19 @@
-import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, ActivityIndicator
-} from 'react-native'
+import { ScrollView, ActivityIndicator } from 'react-native'
 import { useCallback, useState } from 'react'
 import { useFocusEffect, router } from 'expo-router'
 import { supabase } from '../lib/supabase'
-import { Colors } from '../constants/Colors'
 import ImagePickerComponent from '../components/ImagePicker'
 import { t } from '../lib/i18n'
 import Icon from '../components/Icon'
 import { showAlert } from '../lib/alert'
 import KeyboardView from '../components/KeyboardView'
 import DesktopLayout from '../components/DesktopLayout'
-
-const C = Colors.dark
+import {
+  Box, Text, VStack, Input, Button, useTheme, IconButton,
+} from '../design-system'
 
 export default function ProfileScreen() {
+  const theme = useTheme()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [avatarUri, setAvatarUri] = useState<string | null>(null)
@@ -35,7 +33,6 @@ export default function ProfileScreen() {
         setEmail(user.email || '')
         setName((user.user_metadata?.full_name as string | undefined) || '')
         const rawAvatar = (user.user_metadata?.avatar_url as string | undefined) || null
-        // Ignora URIs locais que nao funcionam na web
         setAvatarUri(rawAvatar?.startsWith('https://') ? rawAvatar : null)
       }
     } finally {
@@ -70,107 +67,77 @@ export default function ProfileScreen() {
 
   return (
     <DesktopLayout>
-    <KeyboardView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-          <Icon name="arrow-back" size={22} color={C.icon} />
-        </TouchableOpacity>
+      <KeyboardView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60, paddingBottom: 120 }}>
+          <Box mb={4}>
+            <IconButton accessibilityLabel="Voltar" onPress={() => router.back()} variant="ghost">
+              <Icon name="arrow-back" size={22} color={theme.colors.text} />
+            </IconButton>
+          </Box>
 
-        <Text style={styles.title}>Meu perfil</Text>
+          <Text variant="h3" style={{ marginBottom: 16 }}>Meu perfil</Text>
 
-        {loading ? (
-          <ActivityIndicator color={C.primary} />
-        ) : (
-          <>
-            <Text style={styles.label}>Foto do avatar</Text>
-            <ImagePickerComponent
-              imageUri={avatarUri}
-              onImageSelected={setAvatarUri}
-              aspect={[1, 1]}
-              allowsEditing
-              uploadFolder="avatars"
-              onUploadingChange={setAvatarUploading}
-            />
+          {loading ? (
+            <ActivityIndicator color={theme.colors.brand} />
+          ) : (
+            <VStack gap={4}>
+              <VStack gap={1.5}>
+                <Text variant="label" color="textSecondary">Foto do avatar</Text>
+                <ImagePickerComponent
+                  imageUri={avatarUri}
+                  onImageSelected={setAvatarUri}
+                  aspect={[1, 1]}
+                  allowsEditing
+                  uploadFolder="avatars"
+                  onUploadingChange={setAvatarUploading}
+                />
+              </VStack>
 
-            <Text style={styles.label}>Nome de exibicao</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Seu nome"
-              placeholderTextColor={C.tertiary}
-              value={name}
-              onChangeText={setName}
-            />
+              <Input
+                label="Nome de exibicao"
+                placeholder="Seu nome"
+                value={name}
+                onChangeText={setName}
+                size="lg"
+              />
 
-            <Text style={styles.label}>Email logado</Text>
-            <View style={styles.readOnlyBox}>
-              <Text style={styles.readOnlyText}>{email || '--'}</Text>
-            </View>
+              <VStack gap={1.5}>
+                <Text variant="label" color="textSecondary">Email logado</Text>
+                <Box
+                  bg="surface" borderWidth={1} borderColor="border"
+                  borderRadius="lg" px={3.5} py={3}
+                >
+                  <Text variant="body" color="text">{email || '--'}</Text>
+                </Box>
+              </VStack>
 
-            <TouchableOpacity
-              style={[styles.saveButton, (saving || avatarUploading) && styles.buttonDisabled]}
-              onPress={handleSave}
-              disabled={saving || avatarUploading}
-            >
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Salvar</Text>}
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
+              <Box mt={4}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={saving}
+                  disabled={avatarUploading}
+                  onPress={handleSave}
+                >
+                  Salvar
+                </Button>
+              </Box>
+            </VStack>
+          )}
+        </ScrollView>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.9}>
-        <Text style={styles.logoutText}>Sair do aplicativo</Text>
-      </TouchableOpacity>
-    </KeyboardView>
+        <Box
+          position="absolute" left={20} right={20} bottom={24}
+          borderWidth={1} borderColor="error" borderRadius="lg"
+          py={3.5} alignItems="center"
+          bg="#FF3B3022"
+        >
+          <Button variant="ghost" fullWidth onPress={handleLogout}>
+            <Text variant="subtitle" color="error">Sair do aplicativo</Text>
+          </Button>
+        </Box>
+      </KeyboardView>
     </DesktopLayout>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.background },
-  content: { padding: 24, paddingTop: 60, paddingBottom: 120 },
-  back: { marginBottom: 16 },
-  backText: { color: C.accent, fontSize: 14 },
-  title: { fontSize: 24, fontWeight: '700', color: C.primary, marginBottom: 16 },
-  label: { fontSize: 13, color: C.secondary, marginBottom: 6, marginTop: 14 },
-  input: {
-    backgroundColor: C.surface,
-    borderWidth: 0.5,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: C.primary,
-  },
-  readOnlyBox: {
-    backgroundColor: C.surface,
-    borderWidth: 0.5,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  readOnlyText: { color: C.primary, fontSize: 15 },
-  saveButton: {
-    backgroundColor: C.buttonPrimary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  saveText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  buttonDisabled: { opacity: 0.6 },
-  logoutButton: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 24,
-    borderWidth: 0.5,
-    borderColor: C.error,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: '#FF3B3022',
-  },
-  logoutText: { color: C.error, fontSize: 14, fontWeight: '600' },
-})
