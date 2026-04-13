@@ -2,9 +2,9 @@ import { View, ScrollView, StyleSheet } from 'react-native'
 import Icon from '../components/Icon'
 import { useState, useCallback } from 'react'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
-import { supabase } from '../lib/supabase'
 import { t, getDeviceLocale } from '../lib/i18n'
 import { showAlert } from '../lib/alert'
+import { useExpenseStore } from '../stores/useExpenseStore'
 import SheetModal from '../components/SheetModal'
 import DesktopLayout from '../components/DesktopLayout'
 import HScrollable from '../components/HScrollable'
@@ -14,26 +14,10 @@ import {
   EmptyState, Pressable, useTheme, IconButton,
 } from '../design-system'
 
-const CATEGORIES = [
-  'Hospedagem', 'Alimentação', 'Transporte',
-  'Passeios', 'Compras', 'Saúde', 'Outros'
-]
+import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_CONF } from '../constants/categories'
+import type { Expense } from '../types'
 
-const EXPENSE_CATEGORY_CONF: Record<string, { icon: string; color: string }> = {
-  'Hospedagem':  { icon: 'hotel',             color: '#5856D6' },
-  'Alimentação': { icon: 'restaurant',        color: '#FF9500' },
-  'Transporte':  { icon: 'directions-car',    color: '#32ADE6' },
-  'Passeios':    { icon: 'attractions',       color: '#34C759' },
-  'Compras':     { icon: 'shopping-bag',      color: '#AF52DE' },
-  'Saúde':       { icon: 'medical-services',  color: '#FF2D55' },
-  'Outros':      { icon: 'payments',          color: '#8E8E93' },
-}
-
-type Expense = {
-  id: string; category: string; amount: number; currency: string
-  description: string; date: string; image_url: string | null
-}
-type TripBudget = { budget: number | null; budget_currency: string | null }
+const CATEGORIES = EXPENSE_CATEGORIES
 
 function formatExpenseDate(date: string) {
   if (!date) return '--'
@@ -48,8 +32,12 @@ function formatExpenseDate(date: string) {
 export default function ExpensesScreen() {
   const theme = useTheme()
   const { id: tripId, title: tripTitle, openNew } = useLocalSearchParams()
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [tripBudget, setTripBudget] = useState<TripBudget>({ budget: null, budget_currency: null })
+  const tid = String(tripId || '')
+
+  // ── Store ──
+  const { expenses, budget, budgetCurrency, loadAll, saveExpense, deleteExpense } = useExpenseStore()
+
+  // ── Local UI state ──
   const [modalVisible, setModalVisible] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
@@ -61,19 +49,9 @@ export default function ExpensesScreen() {
   const [saving, setSaving] = useState(false)
 
   useFocusEffect(useCallback(() => {
-    loadExpenses(); loadTripBudget()
+    loadAll(tid)
     if (openNew === '1') openNewExpense()
   }, [openNew]))
-
-  async function loadExpenses() {
-    const { data, error } = await supabase.from('expenses').select('*').eq('trip_id', tripId).order('created_at', { ascending: false })
-    if (!error) setExpenses(data || [])
-  }
-
-  async function loadTripBudget() {
-    const { data } = await supabase.from('trips').select('budget, budget_currency').eq('id', tripId).single()
-    if (data) setTripBudget({ budget: data.budget ?? null, budget_currency: data.budget_currency ?? null })
-  }
 
   function resetForm() {
     setEditingExpenseId(null); setAmount(''); setDescription(''); setCategory('Alimentação')
@@ -95,17 +73,13 @@ export default function ExpensesScreen() {
     const parsedAmount = parseCurrencyInput(amount)
     if (!amount || parsedAmount <= 0) { showAlert(t('attention_title'), t('invalid_amount')); return }
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const payload = {
-      trip_id: tripId, user_id: user?.id, amount: parsedAmount, currency, category,
-      description: description.trim(), date: date || new Date().toISOString().split('T')[0], image_url: imageUri || null,
-    }
-    const request = editingExpenseId
-      ? supabase.from('expenses').update(payload).eq('id', editingExpenseId)
-      : supabase.from('expenses').insert(payload)
-    const { error } = await request
+    const { error } = await saveExpense(tid, {
+      amount: parsedAmount, currency, category,
+      description: description.trim(), date: date || new Date().toISOString().split('T')[0],
+      image_url: imageUri || null,
+    }, editingExpenseId)
     setSaving(false)
-    if (!error) { setModalVisible(false); resetForm(); loadExpenses() }
+    if (!error) { setModalVisible(false); resetForm() }
     else showAlert(t('error_title'), t('save_failed'))
   }
 
@@ -116,8 +90,8 @@ export default function ExpensesScreen() {
         showAlert(t('confirm_delete_expense_second_title'), t('confirm_delete_expense_second_body'), [
           { text: t('cancel_label'), style: 'cancel' },
           { text: t('delete_label'), style: 'destructive', onPress: async () => {
-            await supabase.from('expenses').delete().eq('id', expenseId)
-            loadExpenses(); setModalVisible(false); resetForm()
+            await deleteExpense(expenseId, tid)
+            setModalVisible(false); resetForm()
           }}
         ])
       }}
@@ -125,8 +99,8 @@ export default function ExpensesScreen() {
   }
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0)
-  const budgetCur = tripBudget.budget_currency || 'R$'
-  const budgetAmount = tripBudget.budget
+  const budgetCur = budgetCurrency || 'R$'
+  const budgetAmount = budget
   const budgetPct = budgetAmount && budgetAmount > 0 ? Math.min((total / budgetAmount) * 100, 100) : 0
   const budgetBarColor = budgetPct >= 90 ? theme.colors.error : budgetPct >= 75 ? '#FF9500' : theme.colors.success
   const budgetBalance = budgetAmount != null ? budgetAmount - total : null
@@ -218,7 +192,7 @@ export default function ExpensesScreen() {
               {expenses.map((item) => {
                 const conf = EXPENSE_CATEGORY_CONF[item.category] ?? EXPENSE_CATEGORY_CONF['Outros']
                 return (
-                  <Pressable key={item.id} onPress={() => openEditExpense(item)}>
+                  <Pressable key={item.id} onPress={() => openEditExpense(item)} accessibilityLabel={`${item.category}${item.description ? `, ${item.description}` : ''}, ${item.currency} ${formatBRL(item.amount)}`} accessibilityRole="button">
                     <Card variant="outlined">
                       <HStack p={3.5} gap={3} alignItems="center">
                         <Box
@@ -277,6 +251,9 @@ export default function ExpensesScreen() {
                   <Pressable
                     key={cat}
                     onPress={() => setCategory(cat)}
+                    accessibilityLabel={`Categoria ${cat}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: category === cat }}
                     style={{
                       flexDirection: 'row', alignItems: 'center', gap: 6,
                       paddingHorizontal: 14, paddingVertical: 9,

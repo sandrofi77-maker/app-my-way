@@ -98,8 +98,8 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
         .order('created_at', { ascending: true })
       if (error) throw error
       setMembers((data || []) as Member[])
-    } catch (err: any) {
-      showAlert('Erro', err.message)
+    } catch (err: unknown) {
+      showAlert('Erro', err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
       setLoading(false)
     }
@@ -156,8 +156,8 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
       }
       setInviteEmail('')
       await loadMembers()
-    } catch (err: any) {
-      showAlert('Erro', err.message)
+    } catch (err: unknown) {
+      showAlert('Erro', err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
       setInviting(false)
     }
@@ -172,8 +172,8 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
         .eq('id', memberId)
       if (error) throw error
       setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m))
-    } catch (err: any) {
-      showAlert('Erro', err.message)
+    } catch (err: unknown) {
+      showAlert('Erro', err instanceof Error ? err.message : 'Erro desconhecido')
     }
   }
 

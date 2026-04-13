@@ -61,8 +61,8 @@ export default function NewTripScreen() {
       })
       if (error) throw error
       router.back()
-    } catch (err: any) {
-      showAlert(t('error_title'), err.message)
+    } catch (err: unknown) {
+      showAlert(t('error_title'), err instanceof Error ? err.message : t('generic_error'))
     } finally {
       setLoading(false)
     }

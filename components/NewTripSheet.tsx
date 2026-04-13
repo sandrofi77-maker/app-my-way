@@ -88,8 +88,8 @@ export default function NewTripSheet({ visible, onClose, onCreated }: Props) {
       if (error) throw error
       resetForm()
       onCreated?.()
-    } catch (err: any) {
-      showAlert(t('error_title'), err.message)
+    } catch (err: unknown) {
+      showAlert(t('error_title'), err instanceof Error ? err.message : t('generic_error'))
     } finally {
       setLoading(false)
     }

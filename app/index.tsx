@@ -70,8 +70,8 @@ export default function LoginScreen() {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim())
       if (error) throw error
       showAlert(t('reset_password_title'), t('reset_password_body'))
-    } catch (err: any) {
-      showAlert(t('error_title'), err.message || t('generic_error'))
+    } catch (err: unknown) {
+      showAlert(t('error_title'), err instanceof Error ? err.message : t('generic_error'))
     } finally {
       setLoading(false)
     }
@@ -93,8 +93,8 @@ export default function LoginScreen() {
         if (error) throw error
         router.replace('/(tabs)/home')
       }
-    } catch (err: any) {
-      showAlert(t('error_title'), err.message || t('generic_error'))
+    } catch (err: unknown) {
+      showAlert(t('error_title'), err instanceof Error ? err.message : t('generic_error'))
     } finally {
       setLoading(false)
     }
@@ -139,7 +139,7 @@ export default function LoginScreen() {
           <HStack justifyContent="space-between" alignItems="center">
             <Text variant="label" color="textSecondary">Senha</Text>
             {!isRegister && (
-              <Pressable onPress={handleResetPassword} disabled={loading}>
+              <Pressable onPress={handleResetPassword} disabled={loading} accessibilityLabel="Esqueci a senha" accessibilityRole="button">
                 <Text variant="caption" color="accent">Esqueci a senha</Text>
               </Pressable>
             )}
@@ -191,7 +191,7 @@ export default function LoginScreen() {
           <Text variant="caption" color="textTertiary">ou</Text>
           <Box flex={1} height={1} bg="divider" />
         </HStack>
-        <Pressable onPress={() => setIsRegister(!isRegister)}>
+        <Pressable onPress={() => setIsRegister(!isRegister)} accessibilityLabel={isRegister ? 'Já tenho conta, fazer login' : 'Não tenho conta, cadastrar'} accessibilityRole="button">
           <Text variant="bodySmall" color="textSecondary" align="center">
             {isRegister ? 'Ja tenho conta \u2014 ' : 'Nao tenho conta \u2014 '}
             <Text variant="bodySmall" color="accent" weight="600">

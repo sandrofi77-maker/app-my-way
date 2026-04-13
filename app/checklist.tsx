@@ -11,23 +11,11 @@ import {
   EmptyState, Pressable, useTheme, IconButton, Progress,
 } from '../design-system'
 
-const CATEGORIES = [
-  { key: 'documentos', label: 'Documentos',   icon: 'badge',           color: '#5856D6' },
-  { key: 'roupas',     label: 'Roupas',        icon: 'checkroom',       color: '#FF9500' },
-  { key: 'eletronicos',label: 'Eletronicos',   icon: 'devices',         color: '#32ADE6' },
-  { key: 'saude',      label: 'Saude',         icon: 'medical-services',color: '#FF2D55' },
-  { key: 'outros',     label: 'Outros',        icon: 'checklist',       color: '#8E8E93' },
-]
+import { CHECKLIST_CATEGORIES, CHECKLIST_TEMPLATES } from '../constants/categories'
+import type { ChecklistItem } from '../types'
 
-const TEMPLATES: Record<string, string[]> = {
-  documentos:  ['Passaporte', 'Visto', 'Seguro viagem', 'Passagem impressa', 'Reservas de hotel'],
-  roupas:      ['Roupas para os dias', 'Casaco / agasalho', 'Traje de banho', 'Sapatos confortaveis', 'Roupa intima extra'],
-  eletronicos: ['Carregador do celular', 'Adaptador de tomada', 'Fones de ouvido', 'Power bank', 'Camera'],
-  saude:       ['Remedios pessoais', 'Protetor solar', 'Repelente', 'Kit de primeiros socorros', 'Mascara'],
-  outros:      ['Carteira / dinheiro', 'Copia dos documentos', 'Guia / mapa', 'Snacks para viagem'],
-}
-
-type ChecklistItem = { id: string; title: string; is_done: boolean; category: string }
+const CATEGORIES = CHECKLIST_CATEGORIES
+const TEMPLATES = CHECKLIST_TEMPLATES
 
 export default function ChecklistScreen() {
   const theme = useTheme()
@@ -168,6 +156,10 @@ export default function ChecklistScreen() {
                       key={item.id}
                       onPress={() => toggleItem(item)}
                       onLongPress={() => deleteItem(item.id)}
+                      accessibilityLabel={`${item.title}${item.is_done ? ', concluído' : ''}`}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: item.is_done }}
+                      accessibilityHint="Toque para marcar, segure para remover"
                     >
                       <HStack
                         gap={3} px={4} py={3.5} alignItems="center"
@@ -222,6 +214,9 @@ export default function ChecklistScreen() {
                 <Pressable
                   key={cat.key}
                   onPress={() => setNewCategory(cat.key)}
+                  accessibilityLabel={`Categoria ${cat.label}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: newCategory === cat.key }}
                   style={{
                     flexDirection: 'row', alignItems: 'center', gap: 6,
                     paddingHorizontal: 14, paddingVertical: 9,
@@ -253,7 +248,7 @@ export default function ChecklistScreen() {
         <SheetModal visible={templateModalVisible} onClose={() => setTemplateModalVisible(false)} title="Templates" subtitle="Selecione uma categoria para adicionar itens prontos">
           <VStack gap={0}>
             {CATEGORIES.map(cat => (
-              <Pressable key={cat.key} onPress={() => handleAddTemplate(cat.key)}>
+              <Pressable key={cat.key} onPress={() => handleAddTemplate(cat.key)} accessibilityLabel={`Template ${cat.label}, ${TEMPLATES[cat.key]?.length || 0} sugestões`} accessibilityRole="button">
                 <HStack gap={3.5} py={3.5} alignItems="center"
                   style={{ borderBottomWidth: 0.5, borderBottomColor: theme.colors.border }}
                 >

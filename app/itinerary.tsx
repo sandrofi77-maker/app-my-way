@@ -7,8 +7,8 @@ import Icon from '../components/Icon'
 import ImagePickerComponent from '../components/ImagePicker'
 import { useState, useCallback } from 'react'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
-import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
+import { useItineraryStore } from '../stores/useItineraryStore'
 import { t, getDeviceLocale } from '../lib/i18n'
 import {
   applyDateMask, applyTimeMask,
@@ -23,22 +23,17 @@ import MapView from '../components/MapView'
 import { geocodeLocation } from '../lib/geocoding'
 import DesktopLayout from '../components/DesktopLayout'
 import HScrollable from '../components/HScrollable'
+import { Input, Button, useTheme } from '../design-system'
 
 const C = Colors.dark
 
-const CATEGORIES = [
-  { value: 'flight',        label: 'Voo',         icon: 'flight' as const,         color: '#000000' },
-  { value: 'transport',     label: 'Transporte',  icon: 'directions-car' as const, color: '#32ADE6' },
-  { value: 'accommodation', label: 'Hospedagem',  icon: 'hotel' as const,          color: '#5856D6' },
-  { value: 'food',          label: 'Alimentação', icon: 'restaurant' as const,     color: '#FF9500' },
-  { value: 'sightseeing',   label: 'Passeio',     icon: 'place' as const,          color: '#34C759' },
-  { value: 'event',         label: 'Evento',      icon: 'event' as const,          color: '#FF2D55' },
-  { value: 'shopping',      label: 'Compras',     icon: 'shopping-bag' as const,   color: '#AF52DE' },
-  { value: 'free',          label: 'Livre',       icon: 'beach-access' as const,   color: '#8E8E93' },
-]
+import { ITINERARY_CATEGORIES, getItineraryCategoryConf } from '../constants/categories'
+import type { ItineraryItem } from '../types'
+
+const CATEGORIES = ITINERARY_CATEGORIES
 
 function getCategoryConfig(value?: string | null) {
-  return CATEGORIES.find(c => c.value === value) ?? CATEGORIES[6]
+  return getItineraryCategoryConf(value)
 }
 
 function openInGoogleMaps(lat: number, lng: number, label?: string) {
@@ -46,20 +41,7 @@ function openInGoogleMaps(lat: number, lng: number, label?: string) {
   Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}&query_place_id=&center=${lat},${lng}`)
 }
 
-type ItineraryItem = {
-  id: string
-  title: string
-  description: string | null
-  scheduled_date: string | null
-  scheduled_time: string | null
-  end_time: string | null
-  location: string | null
-  image_url: string | null
-  category: string | null
-  latitude: number | null
-  longitude: number | null
-  created_at: string
-}
+// Tipo ItineraryItem importado de ../types
 
 function getDaysArray(start: string, end: string): string[] {
   const days: string[] = []
@@ -106,8 +88,8 @@ export default function ItineraryScreen() {
   const days = getDaysArray(startDate, endDate)
 
   const [selectedDate, setSelectedDate] = useState<string | null>(days[0] || null)
-  const [items, setItems]               = useState<ItineraryItem[]>([])
-  const [loading, setLoading]           = useState(true)
+  // ── Store ──
+  const { items, loading, loadItems, saveItem, deleteItem } = useItineraryStore()
 
   const [modalVisible, setModalVisible] = useState(false)
   const [saving, setSaving]             = useState(false)
@@ -132,21 +114,8 @@ export default function ItineraryScreen() {
   const timePlaceholder = getLocalTimePlaceholder()
 
   useFocusEffect(
-    useCallback(() => { loadItems() }, [tripId])
+    useCallback(() => { loadItems(tripId) }, [tripId])
   )
-
-  async function loadItems() {
-    if (!tripId) return
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('itinerary_items')
-      .select('*')
-      .eq('trip_id', tripId)
-      .order('scheduled_date', { ascending: true })
-      .order('scheduled_time', { ascending: true })
-    if (!error) setItems(data || [])
-    setLoading(false)
-  }
 
   function resetForm() {
     setEditingId(null)
@@ -207,11 +176,7 @@ export default function ItineraryScreen() {
     }
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error(t('session_expired'))
       const payload = {
-        trip_id:        tripId,
-        user_id:        user.id,
         title:          itemTitle.trim(),
         description:    itemDescription.trim() || null,
         scheduled_date: dateISO,
@@ -223,16 +188,13 @@ export default function ItineraryScreen() {
         latitude:       itemLat,
         longitude:      itemLng,
       }
-      const request = editingId
-        ? supabase.from('itinerary_items').update(payload).eq('id', editingId)
-        : supabase.from('itinerary_items').insert(payload)
-      const { error } = await request
-      if (error) throw error
+      const { error } = await saveItem(tripId, payload, editingId)
+      if (error) throw new Error(error)
       setModalVisible(false)
       resetForm()
-      loadItems()
-    } catch (err: any) {
-      showAlert(t('error_title'), err?.message || t('save_itinerary_failed'))
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t('save_itinerary_failed')
+      showAlert(t('error_title'), message)
     } finally {
       setSaving(false)
     }
@@ -247,13 +209,13 @@ export default function ItineraryScreen() {
         onPress: async () => {
           setDeleting(true)
           try {
-            const { error } = await supabase.from('itinerary_items').delete().eq('id', editingId)
-            if (error) throw error
+            const { error } = await deleteItem(editingId, tripId)
+            if (error) throw new Error(error)
             setModalVisible(false)
             resetForm()
-            loadItems()
-          } catch (err: any) {
-            showAlert(t('error_title'), err?.message || t('delete_itinerary_failed'))
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : t('delete_itinerary_failed')
+            showAlert(t('error_title'), message)
           } finally {
             setDeleting(false)
           }
@@ -274,6 +236,8 @@ export default function ItineraryScreen() {
         style={[styles.untimedCard, { borderLeftColor: catConf.color }]}
         onPress={() => openEditModal(item)}
         activeOpacity={0.85}
+        accessibilityLabel={`${item.title}, ${catConf.label}${item.location ? `, ${item.location}` : ''}`}
+        accessibilityRole="button"
       >
         <View style={[styles.catChip, { backgroundColor: catConf.color + '18' }]}>
           <Icon name={catConf.icon} size={10} color={catConf.color} />
@@ -312,14 +276,14 @@ export default function ItineraryScreen() {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} activeOpacity={0.7} accessibilityLabel="Voltar" accessibilityRole="button">
           <Icon name="arrow-back" size={22} color={C.icon} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Roteiro</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">Roteiro</Text>
           {tripTitle ? <Text style={styles.headerSubtitle} numberOfLines={1}>{tripTitle}</Text> : null}
         </View>
-        <TouchableOpacity onPress={openNewModal} style={styles.headerBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={openNewModal} style={styles.headerBtn} activeOpacity={0.7} accessibilityLabel="Novo evento" accessibilityRole="button">
           <Icon name="add-circle" size={26} color={C.icon} />
         </TouchableOpacity>
       </View>
@@ -342,6 +306,9 @@ export default function ItineraryScreen() {
                     style={[styles.dayCard, isActive && styles.dayCardActive]}
                     onPress={() => { if (!isActive) setSelectedDate(day) }}
                     activeOpacity={0.8}
+                    accessibilityLabel={`${d.toLocaleDateString(getDeviceLocale(), { day: 'numeric', month: 'long', weekday: 'long' })}${hasDayItems ? ', tem eventos' : ''}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
                   >
                     <Text style={[styles.dayMonth,   isActive && styles.dayTextActive]}>{monthStr}</Text>
                     <Text style={[styles.dayNumber,  isActive && styles.dayTextActive]}>{d.getDate()}</Text>
@@ -413,6 +380,8 @@ export default function ItineraryScreen() {
                         style={[styles.eventCard, { top, height: Math.max(height, 40), borderLeftColor: catConf.color }]}
                         onPress={() => openEditModal(item)}
                         activeOpacity={0.85}
+                        accessibilityLabel={`${item.title}, ${catConf.label}, ${item.scheduled_time}${item.end_time ? ` até ${item.end_time}` : ''}${item.location ? `, ${item.location}` : ''}`}
+                        accessibilityRole="button"
                       >
                         <View style={styles.eventCardInner}>
                           <View style={styles.eventCardMeta}>
@@ -460,7 +429,7 @@ export default function ItineraryScreen() {
       </ScrollView>
 
       {/* ── FAB ── */}
-      <TouchableOpacity style={styles.fab} onPress={openNewModal} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.fab} onPress={openNewModal} activeOpacity={0.85} accessibilityLabel="Novo evento" accessibilityRole="button">
         <Icon name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
@@ -498,6 +467,9 @@ export default function ItineraryScreen() {
                       ]}
                       onPress={() => setItemCategory(cat.value)}
                       activeOpacity={0.8}
+                      accessibilityLabel={`Categoria ${cat.label}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
                     >
                       <Icon name={cat.icon} size={15} color={active ? cat.color : C.secondary} />
                       <Text style={[styles.categoryChipText, active && { color: cat.color, fontWeight: '700' }]}>
@@ -509,80 +481,76 @@ export default function ItineraryScreen() {
               </HScrollable>
 
               {/* Title */}
-              <Text style={styles.sheetLabel}>Titulo *</Text>
-              <View style={styles.sheetInputRow}>
-                <Icon name="edit-note" size={20} color={C.secondary} />
-                <TextInput
-                  style={styles.sheetInput}
-                  placeholder="Ex: Visita ao museu"
-                  placeholderTextColor={C.tertiary}
-                  value={itemTitle}
-                  onChangeText={setItemTitle}
-                />
-              </View>
+              <Input
+                label="Título *"
+                placeholder="Ex: Visita ao museu"
+                value={itemTitle}
+                onChangeText={setItemTitle}
+                size="lg"
+                leftIcon={<Icon name="edit-note" size={20} color={C.secondary} />}
+                accessibilityLabel="Título do evento"
+              />
 
               {/* Date */}
-              <Text style={styles.sheetLabel}>Data</Text>
-              <View style={styles.sheetInputRow}>
-                <Icon name="calendar-today" size={18} color={C.secondary} />
-                <TextInput
-                  style={styles.sheetInput}
+              <View style={{ marginTop: 16 }}>
+                <Input
+                  label="Data"
                   placeholder={datePlaceholder}
-                  placeholderTextColor={C.tertiary}
                   value={itemDate}
                   onChangeText={(v) => setItemDate(applyDateMask(v))}
                   keyboardType="numeric"
+                  size="lg"
+                  leftIcon={<Icon name="calendar-today" size={18} color={C.secondary} />}
+                  accessibilityLabel="Data do evento"
                 />
               </View>
 
               {/* Start + End Time */}
-              <View style={styles.modalRow}>
+              <View style={[styles.modalRow, { marginTop: 16 }]}>
                 <View style={styles.modalCol}>
-                  <Text style={styles.sheetLabel}>Hora Início</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="schedule" size={18} color={C.secondary} />
-                    <TextInput
-                      style={styles.sheetInput}
-                      placeholder={timePlaceholder}
-                      placeholderTextColor={C.tertiary}
-                      value={itemTime}
-                      onChangeText={(v) => setItemTime(applyTimeMask(v))}
-                      keyboardType="numeric"
-                    />
-                  </View>
+                  <Input
+                    label="Hora Início"
+                    placeholder={timePlaceholder}
+                    value={itemTime}
+                    onChangeText={(v) => setItemTime(applyTimeMask(v))}
+                    keyboardType="numeric"
+                    size="lg"
+                    leftIcon={<Icon name="schedule" size={18} color={C.secondary} />}
+                    accessibilityLabel="Hora de início"
+                  />
                 </View>
                 <View style={styles.modalCol}>
-                  <Text style={styles.sheetLabel}>Hora Fim</Text>
-                  <View style={styles.sheetInputRow}>
-                    <Icon name="schedule" size={18} color={C.secondary} />
-                    <TextInput
-                      style={styles.sheetInput}
-                      placeholder={timePlaceholder}
-                      placeholderTextColor={C.tertiary}
-                      value={itemEndTime}
-                      onChangeText={(v) => setItemEndTime(applyTimeMask(v))}
-                      keyboardType="numeric"
-                    />
-                  </View>
+                  <Input
+                    label="Hora Fim"
+                    placeholder={timePlaceholder}
+                    value={itemEndTime}
+                    onChangeText={(v) => setItemEndTime(applyTimeMask(v))}
+                    keyboardType="numeric"
+                    size="lg"
+                    leftIcon={<Icon name="schedule" size={18} color={C.secondary} />}
+                    accessibilityLabel="Hora de término"
+                  />
                 </View>
               </View>
 
               {/* Location */}
-              <Text style={styles.sheetLabel}>Local</Text>
-              <View style={styles.sheetInputRow}>
-                <Icon name="location-on" size={20} color={C.secondary} />
-                <TextInput
-                  style={styles.sheetInput}
+              <View style={{ marginTop: 16 }}>
+                <Input
+                  label="Local"
                   placeholder="Ex: Museu do Louvre, Paris"
-                  placeholderTextColor={C.tertiary}
                   value={itemLocation}
                   onChangeText={setItemLocation}
+                  size="lg"
+                  leftIcon={<Icon name="location-on" size={20} color={C.secondary} />}
+                  accessibilityLabel="Local do evento"
                 />
               </View>
 
               {/* Map picker (opcional) */}
               <TouchableOpacity
                 style={styles.mapToggleBtn}
+                accessibilityLabel={mapVisible ? 'Ocultar mapa' : itemLat ? 'Ver no mapa' : 'Marcar no mapa'}
+                accessibilityRole="button"
                 onPress={async () => {
                   if (!mapVisible && !itemLat && itemLocation.trim()) {
                     const coords = await geocodeLocation(itemLocation.trim())
@@ -613,6 +581,8 @@ export default function ItineraryScreen() {
                       <TouchableOpacity
                         style={styles.mapGoogleBtn}
                         onPress={() => openInGoogleMaps(itemLat!, itemLng!, itemLocation.trim() || undefined)}
+                        accessibilityLabel="Abrir no Google Maps"
+                        accessibilityRole="link"
                       >
                         <Icon name="open-in-new" size={14} color={C.accent} />
                         <Text style={styles.mapGoogleText}>Abrir no Google Maps</Text>
@@ -620,6 +590,8 @@ export default function ItineraryScreen() {
                       <TouchableOpacity
                         style={styles.mapClearBtn}
                         onPress={() => { setItemLat(null); setItemLng(null) }}
+                        accessibilityLabel="Remover pin do mapa"
+                        accessibilityRole="button"
                       >
                         <Icon name="close" size={14} color={C.error} />
                         <Text style={styles.mapClearText}>Remover pin</Text>
@@ -630,31 +602,32 @@ export default function ItineraryScreen() {
               )}
 
               {/* Notes */}
-              <Text style={styles.sheetLabel}>Observacoes</Text>
-              <View style={[styles.sheetInputRow, styles.sheetInputRowMultiline]}>
-                <Icon name="notes" size={20} color={C.secondary} />
-                <TextInput
-                  style={[styles.sheetInput, styles.sheetInputMultiline]}
+              <View style={{ marginTop: 16 }}>
+                <Input
+                  label="Observações"
                   placeholder="Detalhes, ingressos, dicas..."
-                  placeholderTextColor={C.tertiary}
                   value={itemDescription}
                   onChangeText={setItemDescription}
                   multiline
+                  size="lg"
+                  leftIcon={<Icon name="notes" size={20} color={C.secondary} />}
+                  accessibilityLabel="Observações do evento"
                 />
               </View>
 
               {/* Save */}
-              <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={handleSave}
-                disabled={saving || deleting || imageUploading}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>{editingId ? 'Salvar edição' : 'Salvar evento'}</Text>
-                )}
-              </TouchableOpacity>
+              <View style={{ marginTop: 24 }}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={saving}
+                  disabled={saving || deleting || imageUploading}
+                  onPress={handleSave}
+                >
+                  {editingId ? 'Salvar edição' : 'Salvar evento'}
+                </Button>
+              </View>
 
 
       </SheetModal>

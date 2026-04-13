@@ -58,8 +58,8 @@ export default function ProfileSheet({ visible, onClose }: Props) {
       })
       if (error) throw error
       showAlert('Perfil atualizado', 'Suas informações foram salvas.')
-    } catch (err: any) {
-      showAlert(t('error_title'), err?.message || t('generic_error'))
+    } catch (err: unknown) {
+      showAlert(t('error_title'), err instanceof Error ? err.message : t('generic_error'))
     } finally {
       setSaving(false)
     }

@@ -9,17 +9,7 @@ import {
   Box, Text, VStack, HStack, Card, EmptyState, useTheme, IconButton,
 } from '../design-system'
 
-const EXPENSE_CATEGORY_CONF: Record<string, { icon: string; color: string }> = {
-  'Hospedagem':  { icon: 'hotel',             color: '#5856D6' },
-  'Alimentacao': { icon: 'restaurant',        color: '#FF9500' },
-  'Alimentação': { icon: 'restaurant',        color: '#FF9500' },
-  'Transporte':  { icon: 'directions-car',    color: '#32ADE6' },
-  'Passeios':    { icon: 'attractions',       color: '#34C759' },
-  'Compras':     { icon: 'shopping-bag',      color: '#AF52DE' },
-  'Saude':       { icon: 'medical-services',  color: '#FF2D55' },
-  'Saúde':       { icon: 'medical-services',  color: '#FF2D55' },
-  'Outros':      { icon: 'payments',          color: '#8E8E93' },
-}
+import { EXPENSE_CATEGORY_CONF } from '../constants/categories'
 
 type TripRow = { id: string; destination: string; status: string; start_date: string | null }
 type ExpenseRow = { amount: number; currency: string; category: string }
