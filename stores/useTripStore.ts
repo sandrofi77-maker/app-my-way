@@ -9,6 +9,7 @@ type TripDetailState = {
   expenses: Expense[]
   itineraryItems: ItineraryItem[]
   loading: boolean
+  error: string | null
 
   loadAll: (tripId: string) => Promise<void>
   loadTrip: (tripId: string) => Promise<void>
@@ -26,55 +27,63 @@ const initialState = {
   expenses: [],
   itineraryItems: [],
   loading: false,
+  error: null as string | null,
 }
 
 export const useTripStore = create<TripDetailState>((set, get) => ({
   ...initialState,
 
   async loadAll(tripId: string) {
-    set({ loading: true })
-    await Promise.all([
+    set({ loading: true, error: null })
+    const results = await Promise.allSettled([
       get().loadTrip(tripId),
       get().loadFlights(tripId),
       get().loadAccommodations(tripId),
       get().loadExpenses(tripId),
       get().loadItineraryItems(tripId),
     ])
+    const failed = results.some(r => r.status === 'rejected')
+    if (failed) set({ error: 'Não foi possível carregar todos os dados da viagem.' })
     set({ loading: false })
   },
 
   async loadTrip(tripId: string) {
     const { data, error } = await supabase
       .from('trips').select('*').eq('id', tripId).single()
-    if (!error && data) set({ trip: data })
+    if (error) { set({ error: error.message }); return }
+    if (data) set({ trip: data })
   },
 
   async loadFlights(tripId: string) {
     const { data, error } = await supabase
       .from('flights').select('*').eq('trip_id', tripId)
       .order('departure_datetime', { ascending: true })
-    if (!error) set({ flights: data || [] })
+    if (error) { set({ error: error.message }); return }
+    set({ flights: data || [] })
   },
 
   async loadAccommodations(tripId: string) {
     const { data, error } = await supabase
       .from('accommodations').select('*').eq('trip_id', tripId)
       .order('check_in_date', { ascending: true, nullsFirst: false })
-    if (!error) set({ accommodations: data || [] })
+    if (error) { set({ error: error.message }); return }
+    set({ accommodations: data || [] })
   },
 
   async loadExpenses(tripId: string) {
     const { data, error } = await supabase
       .from('expenses').select('*').eq('trip_id', tripId)
       .order('date', { ascending: true })
-    if (!error) set({ expenses: data || [] })
+    if (error) { set({ error: error.message }); return }
+    set({ expenses: data || [] })
   },
 
   async loadItineraryItems(tripId: string) {
     const { data, error } = await supabase
       .from('itinerary_items').select('*').eq('trip_id', tripId)
       .order('scheduled_date', { ascending: true })
-    if (!error) set({ itineraryItems: data || [] })
+    if (error) { set({ error: error.message }); return }
+    set({ itineraryItems: data || [] })
   },
 
   reset() {

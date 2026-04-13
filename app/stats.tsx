@@ -1,8 +1,6 @@
 import { ScrollView, ActivityIndicator, View } from 'react-native'
 import Icon from '../components/Icon'
-import { useState, useCallback } from 'react'
-import { router, useFocusEffect } from 'expo-router'
-import { supabase } from '../lib/supabase'
+import { router } from 'expo-router'
 import DesktopLayout from '../components/DesktopLayout'
 import { formatBRL } from '../lib/currency'
 import {
@@ -10,54 +8,15 @@ import {
 } from '../design-system'
 
 import { EXPENSE_CATEGORY_CONF } from '../constants/categories'
-
-type TripRow = { id: string; destination: string; status: string; start_date: string | null }
-type ExpenseRow = { amount: number; currency: string; category: string }
+import { useStatsData } from '../hooks/useStatsData'
 
 export default function StatsScreen() {
   const theme = useTheme()
-  const [loading, setLoading] = useState(true)
-  const [trips, setTrips] = useState<TripRow[]>([])
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([])
-
-  useFocusEffect(useCallback(() => { loadData() }, []))
-
-  async function loadData() {
-    setLoading(true)
-    try {
-      const [tripsRes, expensesRes] = await Promise.all([
-        supabase.from('trips').select('id, destination, status, start_date').order('created_at', { ascending: false }),
-        supabase.from('expenses').select('amount, currency, category'),
-      ])
-      setTrips((tripsRes.data || []) as TripRow[])
-      setExpenses((expensesRes.data || []) as ExpenseRow[])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const totalTrips = trips.length
-  const completedTrips = trips.filter(t => t.status === 'completed').length
-  const uniqueDestinations = new Set(trips.map(t => t.destination.trim().toLowerCase())).size
-
-  const totalByCurrency: Record<string, number> = {}
-  expenses.forEach(e => {
-    const cur = e.currency === 'BRL' ? 'R$' : e.currency
-    totalByCurrency[cur] = (totalByCurrency[cur] || 0) + e.amount
-  })
-
-  const totalByCategory: Record<string, number> = {}
-  expenses.forEach(e => { totalByCategory[e.category] = (totalByCategory[e.category] || 0) + e.amount })
-  const topCategories = Object.entries(totalByCategory).sort((a, b) => b[1] - a[1]).slice(0, 5)
-  const maxCatAmt = topCategories[0]?.[1] || 1
-
-  const destCount: Record<string, number> = {}
-  trips.forEach(t => { const key = t.destination.trim(); destCount[key] = (destCount[key] || 0) + 1 })
-  const topDests = Object.entries(destCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
-
-  const byYear: Record<string, number> = {}
-  trips.forEach(t => { if (t.start_date) { const year = t.start_date.substring(0, 4); byYear[year] = (byYear[year] || 0) + 1 } })
-  const yearEntries = Object.entries(byYear).sort((a, b) => Number(b[0]) - Number(a[0]))
+  const {
+    loading, totalTrips, completedTrips, uniqueDestinations,
+    totalByCurrency, topCategories, maxCategoryAmount: maxCatAmt,
+    topDestinations: topDests, yearEntries,
+  } = useStatsData()
 
   return (
     <DesktopLayout>

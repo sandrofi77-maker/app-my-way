@@ -10,7 +10,8 @@ import {
 } from '@expo-google-fonts/roboto'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect } from 'react'
-import { ThemeProvider, useTheme } from '../design-system'
+import { ThemeProvider, useTheme, ToastProvider } from '../design-system'
+import ErrorBoundary from '../components/ErrorBoundary'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -60,7 +61,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider defaultMode="light">
-      <InnerLayout />
+      <ErrorBoundary>
+        <ToastProvider>
+          <InnerLayout />
+        </ToastProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   )
 }

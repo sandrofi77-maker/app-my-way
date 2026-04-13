@@ -41,6 +41,10 @@ export default function ProfileScreen() {
   }
 
   async function handleSave() {
+    if (!name.trim()) {
+      showAlert(t('attention_title'), t('required_name'))
+      return
+    }
     setSaving(true)
     try {
       const trimmedName = name.trim()

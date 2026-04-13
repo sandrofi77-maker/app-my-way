@@ -1,9 +1,10 @@
 import {
-  View, Text, TouchableOpacity, Pressable, Image,
+  View, Text, TouchableOpacity, Pressable,
   StyleSheet, Modal, TextInput,
   ScrollView, ActivityIndicator, Linking, Platform
 } from 'react-native'
 import Icon from '../components/Icon'
+import CachedImage from '../components/CachedImage'
 import ImagePickerComponent from '../components/ImagePicker'
 import { useState, useCallback } from 'react'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
@@ -414,7 +415,7 @@ export default function ItineraryScreen() {
                           </View>
                           <Text style={styles.eventCardTitle} numberOfLines={2}>{item.title}</Text>
                           {item.image_url ? (
-                            <Image source={{ uri: item.image_url }} style={styles.eventCardThumb} resizeMode="cover" />
+                            <CachedImage uri={item.image_url} style={styles.eventCardThumb} />
                           ) : null}
                         </View>
                       </TouchableOpacity>

@@ -1,5 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { usePathname, router } from 'expo-router'
+import CachedImage from './CachedImage'
 import { Colors } from '../constants/Colors'
 import Icon from './Icon'
 import { useState, useEffect } from 'react'
@@ -94,7 +95,7 @@ export default function WebTopBar() {
           </Text>
           <View style={styles.avatar}>
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              <CachedImage uri={avatarUrl} style={styles.avatarImage} />
             ) : (
               <Text style={styles.avatarText}>{initials}</Text>
             )}

@@ -48,6 +48,9 @@ type LocaleStrings = {
   reset_password_title: string
   reset_password_body: string
   reset_password_empty: string
+  invalid_email: string
+  password_too_short: string
+  required_name: string
 }
 
 const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
@@ -101,6 +104,9 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     reset_password_title: 'Email enviado',
     reset_password_body: 'Verifique sua caixa de entrada para redefinir a senha.',
     reset_password_empty: 'Digite seu email para recuperar a senha.',
+    invalid_email: 'Digite um email válido.',
+    password_too_short: 'A senha deve ter pelo menos 6 caracteres.',
+    required_name: 'Preencha o nome de exibição.',
   },
   en: {
     permission_needed_title: 'Permission required',
@@ -152,6 +158,9 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     reset_password_title: 'Email sent',
     reset_password_body: 'Check your inbox to reset your password.',
     reset_password_empty: 'Enter your email to recover your password.',
+    invalid_email: 'Please enter a valid email.',
+    password_too_short: 'Password must be at least 6 characters.',
+    required_name: 'Please enter a display name.',
   },
 }
 

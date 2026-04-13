@@ -36,21 +36,36 @@ export const useItineraryStore = create<ItineraryState>((set, get) => ({
 
     const row = { ...payload, trip_id: tripId, user_id: user.id }
 
+    // Optimistic update para edicao
+    const prev = get().items
+    if (editingId) {
+      set({ items: prev.map(i => i.id === editingId ? { ...i, ...payload } as ItineraryItem : i) })
+    }
+
     const request = editingId
       ? supabase.from('itinerary_items').update(row).eq('id', editingId)
       : supabase.from('itinerary_items').insert(row)
 
     const { error } = await request
-    if (error) return { error: error.message }
+    if (error) {
+      if (editingId) set({ items: prev }) // rollback
+      return { error: error.message }
+    }
 
     await get().loadItems(tripId)
     return { error: null }
   },
 
   async deleteItem(itemId, tripId) {
+    // Optimistic delete
+    const prev = get().items
+    set({ items: prev.filter(i => i.id !== itemId) })
+
     const { error } = await supabase.from('itinerary_items').delete().eq('id', itemId)
-    if (error) return { error: error.message }
-    await get().loadItems(tripId)
+    if (error) {
+      set({ items: prev }) // rollback
+      return { error: error.message }
+    }
     return { error: null }
   },
 

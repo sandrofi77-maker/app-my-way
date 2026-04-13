@@ -1,5 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import Icon from './Icon'
+import CachedImage from './CachedImage'
 import HScrollable from './HScrollable'
 import { Colors } from '../constants/Colors'
 import { getDeviceLocale } from '../lib/i18n'
@@ -91,7 +92,7 @@ export default function AccommodationSection({ accommodations, cardWidth, isDesk
               >
                 <View style={styles.imageWrapper}>
                   {accom.image_url ? (
-                    <Image source={{ uri: accom.image_url }} style={styles.coverImage} resizeMode="cover" />
+                    <CachedImage uri={accom.image_url} style={styles.coverImage} />
                   ) : (
                     <View style={styles.imagePlaceholder}>
                       <Icon name="hotel" size={44} color={C.tertiary} />

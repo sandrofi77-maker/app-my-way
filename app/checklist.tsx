@@ -4,81 +4,63 @@ import SheetModal from '../components/SheetModal'
 import DesktopLayout from '../components/DesktopLayout'
 import { useState, useCallback } from 'react'
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router'
-import { supabase } from '../lib/supabase'
 import { showAlert } from '../lib/alert'
+import { useChecklistStore } from '../stores/useChecklistStore'
 import {
   Box, Text, VStack, HStack, Card, Input, Button, FAB,
-  EmptyState, Pressable, useTheme, IconButton, Progress,
+  EmptyState, Pressable, useTheme, IconButton, Progress, useToast,
 } from '../design-system'
 
 import { CHECKLIST_CATEGORIES, CHECKLIST_TEMPLATES } from '../constants/categories'
-import type { ChecklistItem } from '../types'
 
 const CATEGORIES = CHECKLIST_CATEGORIES
 const TEMPLATES = CHECKLIST_TEMPLATES
 
 export default function ChecklistScreen() {
   const theme = useTheme()
+  const toast = useToast()
   const { id: tripId, title: tripTitle } = useLocalSearchParams()
-  const [items, setItems] = useState<ChecklistItem[]>([])
+  const tid = String(tripId || '')
+  const store = useChecklistStore()
+  const { items } = store
+
   const [modalVisible, setModalVisible] = useState(false)
   const [templateModalVisible, setTemplateModalVisible] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newCategory, setNewCategory] = useState('outros')
   const [saving, setSaving] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
 
-  useFocusEffect(useCallback(() => { loadItems() }, []))
+  useFocusEffect(useCallback(() => { store.loadItems(tid) }, []))
 
-  async function loadItems() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    setUserId(user.id)
-    const { data } = await supabase
-      .from('trip_checklists').select('*')
-      .eq('trip_id', tripId).eq('user_id', user.id)
-      .order('created_at', { ascending: true })
-    setItems((data || []) as ChecklistItem[])
+  async function handleToggle(item: Parameters<typeof store.toggleItem>[0]) {
+    const { error } = await store.toggleItem(item)
+    if (error) toast.show({ message: 'Erro ao atualizar item.', tone: 'error' })
   }
 
-  async function toggleItem(item: ChecklistItem) {
-    await supabase.from('trip_checklists').update({ is_done: !item.is_done }).eq('id', item.id)
-    setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_done: !i.is_done } : i))
-  }
-
-  async function deleteItem(id: string) {
+  function handleDelete(id: string) {
     showAlert('Remover item', 'Deseja remover este item da checklist?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: async () => {
-        await supabase.from('trip_checklists').delete().eq('id', id)
-        setItems(prev => prev.filter(i => i.id !== id))
+        const { error } = await store.deleteItem(id)
+        if (error) toast.show({ message: 'Erro ao remover item.', tone: 'error' })
       }}
     ])
   }
 
   async function handleAddItem() {
-    if (!newTitle.trim() || !userId) return
+    if (!newTitle.trim()) return
     setSaving(true)
-    const { data, error } = await supabase.from('trip_checklists').insert({
-      trip_id: tripId, user_id: userId, title: newTitle.trim(), category: newCategory, is_done: false,
-    }).select().single()
+    const { error } = await store.addItem(tid, newTitle.trim(), newCategory)
     setSaving(false)
-    if (!error && data) {
-      setItems(prev => [...prev, data as ChecklistItem])
-      setModalVisible(false); setNewTitle(''); setNewCategory('outros')
-    }
+    if (error) { toast.show({ message: 'Erro ao adicionar item.', tone: 'error' }); return }
+    setModalVisible(false); setNewTitle(''); setNewCategory('outros')
   }
 
   async function handleAddTemplate(categoryKey: string) {
-    if (!userId) return
-    const templateItems = TEMPLATES[categoryKey] || []
-    const existingTitles = new Set(items.map(i => i.title.toLowerCase()))
-    const toInsert = templateItems
-      .filter(t => !existingTitles.has(t.toLowerCase()))
-      .map(title => ({ trip_id: tripId as string, user_id: userId, title, category: categoryKey, is_done: false }))
-    if (!toInsert.length) { showAlert('Templates', 'Todos os itens deste template ja foram adicionados.'); return }
-    const { data } = await supabase.from('trip_checklists').insert(toInsert).select()
-    if (data) setItems(prev => [...prev, ...(data as ChecklistItem[])])
+    const templateTitles = TEMPLATES[categoryKey] || []
+    const { error, alreadyExists } = await store.addTemplate(tid, categoryKey, templateTitles)
+    if (error) { toast.show({ message: 'Erro ao aplicar template.', tone: 'error' }); return }
+    if (alreadyExists) { showAlert('Templates', 'Todos os itens deste template ja foram adicionados.'); return }
     setTemplateModalVisible(false)
   }
 
@@ -154,8 +136,8 @@ export default function ChecklistScreen() {
                   {group.items.map(item => (
                     <Pressable
                       key={item.id}
-                      onPress={() => toggleItem(item)}
-                      onLongPress={() => deleteItem(item.id)}
+                      onPress={() => handleToggle(item)}
+                      onLongPress={() => handleDelete(item.id)}
                       accessibilityLabel={`${item.title}${item.is_done ? ', concluído' : ''}`}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: item.is_done }}

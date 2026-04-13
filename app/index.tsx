@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { t } from '../lib/i18n'
 import { showAlert } from '../lib/alert'
+import { isValidEmail } from '../lib/validation'
 import KeyboardView from '../components/KeyboardView'
 import Icon from '../components/Icon'
 import {
@@ -65,6 +66,10 @@ export default function LoginScreen() {
       showAlert(t('attention_title'), t('reset_password_empty'))
       return
     }
+    if (!isValidEmail(email.trim())) {
+      showAlert(t('attention_title'), t('invalid_email'))
+      return
+    }
     setLoading(true)
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim())
@@ -80,6 +85,14 @@ export default function LoginScreen() {
   async function handleAuth() {
     if (!email || !password) {
       showAlert(t('attention_title'), t('required_auth_fields'))
+      return
+    }
+    if (!isValidEmail(email.trim())) {
+      showAlert(t('attention_title'), t('invalid_email'))
+      return
+    }
+    if (isRegister && password.length < 6) {
+      showAlert(t('attention_title'), t('password_too_short'))
       return
     }
     setLoading(true)

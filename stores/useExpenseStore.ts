@@ -55,21 +55,36 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser()
     const row = { ...payload, trip_id: tripId, user_id: user?.id }
 
+    // Optimistic update para edicao
+    const prev = get().expenses
+    if (editingId) {
+      set({ expenses: prev.map(e => e.id === editingId ? { ...e, ...payload } as Expense : e) })
+    }
+
     const request = editingId
       ? supabase.from('expenses').update(row).eq('id', editingId)
       : supabase.from('expenses').insert(row)
 
     const { error } = await request
-    if (error) return { error: error.message }
+    if (error) {
+      if (editingId) set({ expenses: prev }) // rollback
+      return { error: error.message }
+    }
 
     await get().loadExpenses(tripId)
     return { error: null }
   },
 
   async deleteExpense(expenseId, tripId) {
+    // Optimistic delete
+    const prev = get().expenses
+    set({ expenses: prev.filter(e => e.id !== expenseId) })
+
     const { error } = await supabase.from('expenses').delete().eq('id', expenseId)
-    if (error) return { error: error.message }
-    await get().loadExpenses(tripId)
+    if (error) {
+      set({ expenses: prev }) // rollback
+      return { error: error.message }
+    }
     return { error: null }
   },
 

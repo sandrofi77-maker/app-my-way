@@ -4,7 +4,7 @@ import {
   Pressable, useWindowDimensions
 } from 'react-native'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import { t, getDeviceLocale } from '../lib/i18n'
@@ -23,7 +23,7 @@ import AccommodationFormModal from '../components/AccommodationFormModal'
 import ItineraryPreviewSection from '../components/ItineraryPreviewSection'
 import ExpensesPreviewSection from '../components/ExpensesPreviewSection'
 import ChecklistPreviewSection from '../components/ChecklistPreviewSection'
-import { Tabs, FAB } from '../design-system'
+import { Tabs, FAB, useToast } from '../design-system'
 import type { TabItem } from '../design-system/components/Tabs'
 import type { Flight, Accommodation } from '../types'
 
@@ -56,14 +56,20 @@ export default function TripDetailScreen() {
   const { id } = useLocalSearchParams()
   const tripId = String(id || '')
 
+  const toast = useToast()
+
   // ── Store ──
-  const { trip, flights, accommodations, expenses, itineraryItems, loadAll, loadFlights, loadAccommodations } = useTripStore()
+  const { trip, flights, accommodations, expenses, itineraryItems, error: storeError, loadAll, loadFlights, loadAccommodations } = useTripStore()
 
   useFocusEffect(
     useCallback(() => {
       if (tripId) loadAll(tripId)
     }, [tripId])
   )
+
+  useEffect(() => {
+    if (storeError) toast.show({ message: storeError, tone: 'error' })
+  }, [storeError])
 
   // ── Local UI state ──
   const [activeSection, setActiveSection] = useState<SectionId>('roteiro')
