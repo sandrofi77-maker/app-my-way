@@ -145,6 +145,7 @@ export default function HScrollable({
 const styles = StyleSheet.create({
   wrapper: {
     position: 'relative',
+    overflow: 'hidden',
   },
   arrowBtn: {
     position: 'absolute',

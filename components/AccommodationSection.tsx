@@ -59,13 +59,6 @@ type Props = {
 export default function AccommodationSection({ accommodations, cardWidth, isDesktop, activeIndex, onIndexChange, onAdd, onEdit }: Props) {
   return (
     <>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Hospedagem</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={onAdd} accessibilityLabel="Adicionar hospedagem" accessibilityRole="button">
-          <Icon name="add" size={20} color={C.icon} />
-        </TouchableOpacity>
-      </View>
-
       {accommodations.length === 0 ? (
         <View style={styles.emptyCard}>
           <Icon name="hotel" size={32} color={C.tertiary} />
@@ -165,9 +158,6 @@ export default function AccommodationSection({ accommodations, cardWidth, isDesk
 }
 
 const styles = StyleSheet.create({
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: C.primary, marginBottom: 10, marginTop: 8 },
-  addBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh, borderWidth: 0.5, borderColor: C.border },
   emptyCard: { backgroundColor: C.surface, borderRadius: 20, padding: 24, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', gap: 10 },
   emptyText: { fontSize: 13, color: C.tertiary, marginBottom: 10 },
   desktopRow: { gap: 16, paddingRight: 4 },

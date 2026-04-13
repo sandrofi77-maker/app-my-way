@@ -13,15 +13,29 @@ import { showAlert } from '../lib/alert'
 import { shareAsText, shareAsPDF } from '../lib/share-trip'
 import DesktopLayout from '../components/DesktopLayout'
 import TripShareSheet from '../components/TripShareSheet'
-import { formatBRL } from '../lib/currency'
 import { useResponsive } from '../hooks/useResponsive'
-import { ITINERARY_CATEGORY_CONF, EXPENSE_CATEGORY_CONF } from '../constants/categories'
 import { useTripStore } from '../stores/useTripStore'
+
 import FlightSection from '../components/FlightSection'
 import AccommodationSection from '../components/AccommodationSection'
 import FlightFormModal from '../components/FlightFormModal'
 import AccommodationFormModal from '../components/AccommodationFormModal'
+import ItineraryPreviewSection from '../components/ItineraryPreviewSection'
+import ExpensesPreviewSection from '../components/ExpensesPreviewSection'
+import ChecklistPreviewSection from '../components/ChecklistPreviewSection'
+import { Tabs, FAB } from '../design-system'
+import type { TabItem } from '../design-system/components/Tabs'
 import type { Flight, Accommodation } from '../types'
+
+type SectionId = 'roteiro' | 'gastos' | 'voos' | 'hospedagens' | 'checklist'
+
+const SECTION_TABS: TabItem<SectionId>[] = [
+  { value: 'roteiro', label: 'Roteiro' },
+  { value: 'gastos', label: 'Gastos' },
+  { value: 'voos', label: 'Voos' },
+  { value: 'hospedagens', label: 'Hospedagens' },
+  { value: 'checklist', label: 'Checklist' },
+]
 
 const C = Colors.dark
 
@@ -52,6 +66,7 @@ export default function TripDetailScreen() {
   )
 
   // ── Local UI state ──
+  const [activeSection, setActiveSection] = useState<SectionId>('roteiro')
   const [flightsModalVisible, setFlightsModalVisible] = useState(false)
   const [accommodationModalVisible, setAccommodationModalVisible] = useState(false)
   const [editingFlight, setEditingFlight] = useState<Flight | null>(null)
@@ -150,7 +165,8 @@ export default function TripDetailScreen() {
   return (
     <DesktopLayout fullWidth={isDesktop}>
     <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={[styles.fabAnchor, isDesktop && styles.fabAnchorDesktop]}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* ── Hero ── */}
         <View style={[styles.heroCard, isDesktop && styles.heroCardDesktop]}>
           <View style={[styles.heroImageWrap, isDesktop && styles.heroImageWrapDesktop, !isDesktop && styles.heroImageWrapMobile]}>
@@ -203,213 +219,97 @@ export default function TripDetailScreen() {
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
 
-          {/* ── Flights ── */}
-          <FlightSection
-            flights={flights}
-            cardWidth={CARD_WIDTH}
-            isDesktop={isDesktop}
-            activeIndex={activeFlightIndex}
-            onIndexChange={setActiveFlightIndex}
-            onAdd={openNewFlightModal}
-            onEdit={openEditFlightModal}
-          />
-
-          {/* ── Accommodations ── */}
-          <AccommodationSection
-            accommodations={accommodations}
-            cardWidth={CARD_WIDTH}
-            isDesktop={isDesktop}
-            activeIndex={activeAccomIndex}
-            onIndexChange={setActiveAccomIndex}
-            onAdd={openNewAccommodationModal}
-            onEdit={openEditAccommodationModal}
-          />
-
-          {/* ── Itinerary preview ── */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Roteiro</Text>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}
-              accessibilityLabel="Abrir roteiro"
-              accessibilityRole="button"
-            >
-              <Icon name="add" size={20} color={C.icon} />
-            </TouchableOpacity>
+          {/* ── Section Tabs ── */}
+          <View style={styles.tabsRow}>
+            <Tabs
+              value={activeSection}
+              onChange={setActiveSection}
+              items={SECTION_TABS}
+              variant="pill"
+              scrollable
+            />
           </View>
-          <TouchableOpacity
-            style={styles.itineraryCard}
-            activeOpacity={0.85}
-            onPress={() => router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}
-            accessibilityLabel="Ver roteiro completo"
-            accessibilityRole="button"
-          >
-            {(() => {
-              const today = new Date().toISOString().split('T')[0]
-              const upcoming = itineraryItems
-                .filter(i => i.scheduled_date && i.scheduled_date >= today)
-                .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || (a.scheduled_time || '').localeCompare(b.scheduled_time || ''))
-                .slice(0, 3)
 
-              return (
-                <>
-                  {upcoming.length === 0 ? (
-                    <View style={styles.itineraryEmptyState}>
-                      <Icon name="event-available" size={24} color={C.tertiary} />
-                      <Text style={styles.itineraryEmptyText}>Nenhum evento programado</Text>
-                    </View>
-                  ) : (
-                    upcoming.map((item, idx) => {
-                      const conf = ITINERARY_CATEGORY_CONF[item.category || 'free'] ?? ITINERARY_CATEGORY_CONF['free']
-                      const dateLabel = item.scheduled_date
-                        ? new Date(item.scheduled_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-                        : null
-                      return (
-                        <View key={item.id} style={[styles.itineraryPreviewItem, { borderLeftColor: conf.color }, idx < upcoming.length - 1 && { marginBottom: 8 }]}>
-                          <View style={styles.itineraryPreviewInner}>
-                            <View style={styles.itineraryPreviewTopRow}>
-                              <View style={[styles.itineraryPreviewIcon, { backgroundColor: conf.color + '18' }]}>
-                                <Icon name={conf.icon as string} size={13} color={conf.color} />
-                              </View>
-                              <Text style={[styles.itineraryPreviewCat, { color: conf.color }]}>{item.category || 'Livre'}</Text>
-                            </View>
-                            <Text style={styles.itineraryPreviewTitle} numberOfLines={1}>{item.title}</Text>
-                            {[dateLabel, item.scheduled_time, item.location].filter(Boolean).length > 0 && (
-                              <Text style={styles.itineraryPreviewMeta} numberOfLines={1}>
-                                {[dateLabel, item.scheduled_time, item.location].filter(Boolean).join('  ·  ')}
-                              </Text>
-                            )}
-                          </View>
-                        </View>
-                      )
-                    })
-                  )}
-                </>
-              )
-            })()}
-          </TouchableOpacity>
+          {/* ── Active Section Content ── */}
+          {activeSection === 'roteiro' && (
+            <ItineraryPreviewSection
+              tripId={tripId}
+              tripTitle={trip.title}
+              startDate={trip.start_date}
+              endDate={trip.end_date}
+              itineraryItems={itineraryItems}
+            />
+          )}
 
-          {/* ── Expenses preview ── */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Gastos</Text>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title, openNew: '1' } })}
-              accessibilityLabel="Adicionar gasto"
-              accessibilityRole="button"
-            >
-              <Icon name="add" size={20} color={C.icon} />
-            </TouchableOpacity>
-          </View>
-          {expenses.length === 0 ? (
-            <TouchableOpacity
-              style={styles.expensesEmptyCard}
-              onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
-              activeOpacity={0.85}
-              accessibilityLabel="Registrar gastos"
-              accessibilityRole="button"
-            >
-              <Icon name="account-balance-wallet" size={28} color={C.tertiary} />
-              <Text style={styles.expensesEmptyText}>Nenhum gasto registrado</Text>
-              <Text style={styles.expensesEmptySubtext}>Toque para registrar seus gastos</Text>
-            </TouchableOpacity>
-          ) : (() => {
-            const total = expenses.reduce((sum, e) => sum + e.amount, 0)
-            const currency = expenses[expenses.length - 1]?.currency || 'R$'
-            const recent = [...expenses].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 3)
-            const categoryTotals = Object.entries(
-              expenses.reduce((acc, e) => { acc[e.category] = (acc[e.category] || 0) + e.amount; return acc }, {} as Record<string, number>)
-            ).sort((a, b) => b[1] - a[1]).slice(0, 4)
-            const maxCat = categoryTotals[0]?.[1] || 1
-            return (
-              <TouchableOpacity
-                style={styles.expensesCard}
-                onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title } })}
-                activeOpacity={0.85}
-                accessibilityLabel={`Total gasto: ${currency} ${formatBRL(total)}`}
-                accessibilityRole="button"
-              >
-                <View style={styles.expensesBentoTotal}>
-                  <Text style={styles.expensesBentoTotalLabel}>Total gasto</Text>
-                  <Text style={styles.expensesBentoTotalValue} numberOfLines={1} adjustsFontSizeToFit>
-                    {currency} {formatBRL(total)}
-                  </Text>
-                  <Text style={styles.expensesBentoCountInline}>
-                    {expenses.length} {expenses.length === 1 ? 'lançamento' : 'lançamentos'}
-                  </Text>
-                </View>
+          {activeSection === 'gastos' && (
+            <ExpensesPreviewSection
+              tripId={tripId}
+              tripTitle={trip.title}
+              expenses={expenses}
+            />
+          )}
 
-                <View style={styles.expensesCatSection}>
-                  {categoryTotals.map(([cat, amt]) => {
-                    const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
-                    const pct = (amt / maxCat) * 100
-                    return (
-                      <View key={cat} style={styles.expensesCatRow}>
-                        <View style={styles.expensesCatLeft}>
-                          <Icon name={conf.icon as string} size={12} color={conf.color} />
-                          <Text style={styles.expensesCatLabel} numberOfLines={1}>{cat}</Text>
-                        </View>
-                        <View style={styles.expensesCatBarTrack}>
-                          <View style={[styles.expensesCatBar, { width: `${pct}%` as any, backgroundColor: conf.color }]} />
-                        </View>
-                        <Text style={styles.expensesCatAmt}>{currency} {formatBRL(amt)}</Text>
-                      </View>
-                    )
-                  })}
-                </View>
+          {activeSection === 'voos' && (
+            <FlightSection
+              flights={flights}
+              cardWidth={CARD_WIDTH}
+              isDesktop={isDesktop}
+              activeIndex={activeFlightIndex}
+              onIndexChange={setActiveFlightIndex}
+              onAdd={openNewFlightModal}
+              onEdit={openEditFlightModal}
+            />
+          )}
 
-                <View style={styles.expensesDivider} />
+          {activeSection === 'hospedagens' && (
+            <AccommodationSection
+              accommodations={accommodations}
+              cardWidth={CARD_WIDTH}
+              isDesktop={isDesktop}
+              activeIndex={activeAccomIndex}
+              onIndexChange={setActiveAccomIndex}
+              onAdd={openNewAccommodationModal}
+              onEdit={openEditAccommodationModal}
+            />
+          )}
 
-                {recent.map((e, idx) => {
-                  const conf = EXPENSE_CATEGORY_CONF[e.category] ?? EXPENSE_CATEGORY_CONF['Outros']
-                  return (
-                    <View key={e.id} style={[styles.expensesRecentRow, idx < recent.length - 1 && styles.expensesRecentRowBorder]}>
-                      <View style={[styles.expensesRecentIcon, { backgroundColor: conf.color + '18' }]}>
-                        <Icon name={conf.icon as string} size={14} color={conf.color} />
-                      </View>
-                      <View style={styles.expensesRecentMid}>
-                        <Text style={styles.expensesRecentCat}>{e.category}</Text>
-                        {e.description ? <Text style={styles.expensesRecentDesc} numberOfLines={1}>{e.description}</Text> : null}
-                      </View>
-                      <Text style={styles.expensesRecentAmt}>{e.currency} {formatBRL(e.amount)}</Text>
-                    </View>
-                  )
-                })}
-              </TouchableOpacity>
-            )
-          })()}
-
-          {/* ── Checklist ── */}
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Checklist</Text>
-              <TouchableOpacity
-                style={styles.addBtn}
-                onPress={() => router.push({ pathname: '/checklist', params: { id: trip.id, title: trip.title } })}
-                accessibilityLabel="Abrir checklist"
-                accessibilityRole="button"
-              >
-                <Icon name="open-in-new" size={20} color={C.icon} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.checklistCard}
-              activeOpacity={0.85}
-              onPress={() => router.push({ pathname: '/checklist', params: { id: trip.id, title: trip.title } })}
-              accessibilityLabel="Lista de bagagem e tarefas"
-              accessibilityRole="button"
-            >
-              <Icon name="checklist" size={28} color={C.tertiary} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.checklistCardTitle}>Lista de bagagem e tarefas</Text>
-                <Text style={styles.checklistCardSub}>Organize o que levar e o que fazer</Text>
-              </View>
-              <Icon name="chevron-right" size={20} color={C.tertiary} />
-            </TouchableOpacity>
-          </View>
+          {activeSection === 'checklist' && (
+            <ChecklistPreviewSection
+              tripId={tripId}
+              tripTitle={trip.title}
+            />
+          )}
 
         </View>
       </ScrollView>
+
+      {/* ── FAB (context-sensitive per active section) ── */}
+      {activeSection === 'roteiro' && (
+        <FAB accessibilityLabel="Abrir roteiro" onPress={() => router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}>
+          <Icon name="map" size={26} color="#fff" />
+        </FAB>
+      )}
+      {activeSection === 'gastos' && (
+        <FAB accessibilityLabel="Novo gasto" onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title, openNew: '1' } })}>
+          <Icon name="add" size={28} color="#fff" />
+        </FAB>
+      )}
+      {activeSection === 'voos' && (
+        <FAB accessibilityLabel="Adicionar voo" onPress={openNewFlightModal}>
+          <Icon name="add" size={28} color="#fff" />
+        </FAB>
+      )}
+      {activeSection === 'hospedagens' && (
+        <FAB accessibilityLabel="Adicionar hospedagem" onPress={openNewAccommodationModal}>
+          <Icon name="add" size={28} color="#fff" />
+        </FAB>
+      )}
+      {activeSection === 'checklist' && (
+        <FAB accessibilityLabel="Abrir checklist" onPress={() => router.push({ pathname: '/checklist', params: { id: tripId, title: trip.title } })}>
+          <Icon name="checklist" size={26} color="#fff" />
+        </FAB>
+      )}
+    </View>
 
       {/* ── Flight Form Modal ── */}
       <FlightFormModal
@@ -503,7 +403,9 @@ export default function TripDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.background },
+  fabAnchor: { flex: 1 },
+  fabAnchorDesktop: { maxWidth: 960, width: '100%', alignSelf: 'center' as any },
+  container: { flex: 1, backgroundColor: C.background, overflow: 'hidden' as any },
   loading: { flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: C.secondary, fontSize: 14 },
   heroCard: {
@@ -533,11 +435,9 @@ const styles = StyleSheet.create({
   backBtn: { position: 'absolute', top: 16, left: 16, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
   topRightBtns: { position: 'absolute', top: 16, right: 16, flexDirection: 'row', gap: 10 },
   topBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20, paddingBottom: 60 },
-  contentDesktop: { paddingHorizontal: 40, paddingTop: 28, maxWidth: 960, alignSelf: 'center' as any, width: '100%' },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: C.primary, marginBottom: 10, marginTop: 8 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 8 },
-  addBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh, borderWidth: 0.5, borderColor: C.border },
+  content: { padding: 20, paddingBottom: 100, overflow: 'hidden' as any },
+  contentDesktop: { paddingHorizontal: 40, paddingTop: 28, maxWidth: 960, alignSelf: 'center' as any, width: '100%', overflow: 'hidden' as any },
+  tabsRow: { marginBottom: 16 },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' },
   menuPanel: { position: 'absolute', top: 104, right: 20, backgroundColor: C.surface, borderRadius: 12, borderWidth: 0.5, borderColor: C.border, minWidth: 180, overflow: 'hidden' },
   menuItem: { paddingVertical: 12, paddingHorizontal: 16 },
@@ -548,55 +448,4 @@ const styles = StyleSheet.create({
   sharePanel: { position: 'absolute', top: 104, right: 20, backgroundColor: C.surface, borderRadius: 16, borderWidth: 0.5, borderColor: C.border, minWidth: 220, overflow: 'hidden' },
   sharePanelTitle: { fontSize: 12, fontWeight: '700', color: C.secondary, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
   menuItemHint: { fontSize: 11, color: C.tertiary, marginTop: 1 },
-
-  // Itinerary preview
-  itineraryCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, borderWidth: 0.5, borderColor: C.border, marginBottom: 16 },
-  itineraryEmptyState: { alignItems: 'center', gap: 6, paddingVertical: 12 },
-  itineraryEmptyText: { fontSize: 14, fontWeight: '600', color: C.secondary },
-  itineraryPreviewItem: {
-    backgroundColor: C.surfaceHigh, borderRadius: 14,
-    borderWidth: 0.5, borderColor: C.border, borderLeftWidth: 4,
-    overflow: 'hidden',
-  },
-  itineraryPreviewInner: { padding: 12 },
-  itineraryPreviewTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  itineraryPreviewIcon: { width: 24, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
-  itineraryPreviewCat: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  itineraryPreviewTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginBottom: 3 },
-  itineraryPreviewMeta: { fontSize: 12, color: C.secondary },
-
-  // Expenses preview
-  expensesEmptyCard: { backgroundColor: C.surface, borderRadius: 16, padding: 24, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', gap: 6, marginBottom: 16 },
-  expensesEmptyText: { fontSize: 14, fontWeight: '600', color: C.secondary, marginTop: 4 },
-  expensesEmptySubtext: { fontSize: 12, color: C.tertiary },
-  expensesCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, borderWidth: 0.5, borderColor: C.border, marginBottom: 16 },
-  expensesBentoTotal: { backgroundColor: C.surfaceHigh, borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 0.5, borderColor: C.border },
-  expensesBentoTotalLabel: { fontSize: 10, fontWeight: '700', color: C.tertiary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
-  expensesBentoTotalValue: { fontSize: 22, fontWeight: '800', color: C.primary },
-  expensesBentoCountInline: { fontSize: 12, color: C.tertiary, marginTop: 6 },
-  expensesCatSection: { gap: 8, marginBottom: 14 },
-  expensesCatRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  expensesCatLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 94 },
-  expensesCatLabel: { fontSize: 11, color: C.secondary, flex: 1 },
-  expensesCatBarTrack: { flex: 1, height: 4, backgroundColor: C.surfaceHigh, borderRadius: 2, overflow: 'hidden' },
-  expensesCatBar: { height: 4, borderRadius: 2 },
-  expensesCatAmt: { fontSize: 11, fontWeight: '600', color: C.primary, width: 58, textAlign: 'right' },
-  expensesDivider: { height: 0.5, backgroundColor: C.border, marginBottom: 4 },
-  expensesRecentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  expensesRecentRowBorder: { borderBottomWidth: 0.5, borderBottomColor: C.border },
-  expensesRecentIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  expensesRecentMid: { flex: 1 },
-  expensesRecentCat: { fontSize: 13, fontWeight: '600', color: C.primary },
-  expensesRecentDesc: { fontSize: 11, color: C.tertiary },
-  expensesRecentAmt: { fontSize: 13, fontWeight: '700', color: C.primary },
-
-  // Checklist
-  sectionBlock: { marginBottom: 16 },
-  checklistCard: {
-    backgroundColor: C.surface, borderRadius: 16, padding: 16,
-    borderWidth: 0.5, borderColor: C.border,
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-  },
-  checklistCardTitle: { fontSize: 15, fontWeight: '600', color: C.primary, marginBottom: 2 },
-  checklistCardSub: { fontSize: 12, color: C.secondary },
 })

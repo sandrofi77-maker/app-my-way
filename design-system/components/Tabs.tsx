@@ -58,7 +58,7 @@ export function Tabs<T extends string>({
                 paddingVertical: 8,
                 paddingHorizontal: 14,
                 borderRadius: theme.radius.full,
-                backgroundColor: active ? theme.colors.brand : 'transparent',
+                backgroundColor: active ? theme.colors.brand : theme.colors.surfaceHigh,
               }
             : {
                 flex: 1,
