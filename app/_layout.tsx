@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router'
-import { Text as RNText, TextInput } from 'react-native'
+import { Text as RNText, TextInput, Platform } from 'react-native'
 import { useFonts } from 'expo-font'
 import {
   Roboto_400Regular,
@@ -10,7 +10,7 @@ import {
 } from '@expo-google-fonts/roboto'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect } from 'react'
-import { ThemeProvider, useTheme, ToastProvider } from '../design-system'
+import { ThemeProvider, useTheme, ToastProvider, Box, Text } from '../design-system'
 import ErrorBoundary from '../components/ErrorBoundary'
 import SyncIndicator from '../components/SyncIndicator'
 import { useNetworkStore } from '../lib/network'
@@ -19,6 +19,7 @@ import { expenseExecutor } from '../stores/useExpenseStore'
 import { itineraryExecutor } from '../stores/useItineraryStore'
 import { checklistExecutor } from '../stores/useChecklistStore'
 import { getPendingCount } from '../lib/mutationQueue'
+import { isSupabaseConfigured, supabaseConfigError } from '../lib/supabase'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -84,6 +85,24 @@ export default function RootLayout() {
   }, [fontsLoaded])
 
   if (!fontsLoaded) return null
+
+  if (!isSupabaseConfigured && Platform.OS === 'web') {
+    return (
+      <ThemeProvider defaultMode="light">
+        <Box flex={1} bg="background" alignItems="center" justifyContent="center" px={6}>
+          <Box bg="surface" borderRadius="xl" p={6} maxWidth={560} width="100%" borderWidth={1} borderColor="border">
+            <Text variant="h3" weight="700">Configuracao web incompleta</Text>
+            <Text variant="body" color="textSecondary" mt={2}>
+              {supabaseConfigError}
+            </Text>
+            <Text variant="bodySmall" color="textTertiary" mt={3}>
+              Configure essas variaveis no projeto da Vercel e refaca o deploy.
+            </Text>
+          </Box>
+        </Box>
+      </ThemeProvider>
+    )
+  }
 
   return (
     <ThemeProvider defaultMode="light">
