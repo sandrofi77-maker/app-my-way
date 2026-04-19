@@ -4,7 +4,7 @@ import {
 } from 'react-native'
 import * as ExpoImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import Icon from './Icon'
 import { uploadImage } from '../lib/storage'
 import { showAlert } from '../lib/alert'
@@ -23,7 +23,15 @@ const SCREEN = Dimensions.get('window')
 export default function ReceiptPicker({ imageUris, onChanged, onUploadingChange }: Props) {
   const theme = useTheme()
   const [uploading, setUploading] = useState(false)
-  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  const [previewVisible, setPreviewVisible] = useState(false)
+  const [previewIndex, setPreviewIndex] = useState(0)
+  const closingRef = useRef(false)
+
+  const closePreview = useCallback(() => {
+    closingRef.current = true
+    setPreviewVisible(false)
+    setTimeout(() => { closingRef.current = false }, 600)
+  }, [])
 
   const addUri = useCallback((uri: string) => {
     onChanged([...imageUris, uri])
@@ -31,7 +39,7 @@ export default function ReceiptPicker({ imageUris, onChanged, onUploadingChange 
 
   const removeAt = useCallback((index: number) => {
     onChanged(imageUris.filter((_, i) => i !== index))
-    setPreviewIndex(null)
+    closePreview()
   }, [imageUris, onChanged])
 
   async function handleUpload(localUri: string) {
@@ -96,11 +104,13 @@ export default function ReceiptPicker({ imageUris, onChanged, onUploadingChange 
   }
 
   function openPreview(index: number) {
+    if (closingRef.current) return
     const uri = imageUris[index]
     if (isPdf(uri)) {
       Linking.openURL(uri)
     } else {
       setPreviewIndex(index)
+      setPreviewVisible(true)
     }
   }
 
@@ -177,71 +187,73 @@ export default function ReceiptPicker({ imageUris, onChanged, onUploadingChange 
       </HStack>
 
       {/* Fullscreen preview modal */}
-      <Modal
-        visible={previewIndex !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPreviewIndex(null)}
-      >
-        <View style={styles.modalBg}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <Text variant="body" weight="700" style={{ color: '#fff' }}>
-              {previewIndex !== null ? `${previewIndex + 1} / ${imageUris.length}` : ''}
-            </Text>
-            <HStack gap={3}>
-              <TouchableOpacity
-                onPress={() => previewIndex !== null && removeAt(previewIndex)}
-                activeOpacity={0.8}
-                style={styles.modalBtn}
-              >
-                <Icon name="delete" size={22} color={theme.colors.error} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setPreviewIndex(null)}
-                activeOpacity={0.8}
-                style={styles.modalBtn}
-              >
-                <Icon name="close" size={22} color="#fff" />
-              </TouchableOpacity>
-            </HStack>
-          </View>
+      {previewVisible && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={closePreview}
+        >
+          <View style={styles.modalBg}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <Text variant="body" weight="700" style={{ color: '#fff' }}>
+                {previewIndex + 1} / {imageUris.filter(u => !isPdf(u)).length}
+              </Text>
+              <HStack gap={3}>
+                <TouchableOpacity
+                  onPress={() => removeAt(previewIndex)}
+                  activeOpacity={0.8}
+                  style={styles.modalBtn}
+                >
+                  <Icon name="delete" size={22} color={theme.colors.error} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={closePreview}
+                  activeOpacity={0.8}
+                  style={styles.modalBtn}
+                >
+                  <Icon name="close" size={22} color="#fff" />
+                </TouchableOpacity>
+              </HStack>
+            </View>
 
-          {/* Swipeable images */}
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            contentOffset={{ x: (previewIndex ?? 0) * SCREEN.width, y: 0 }}
-            onMomentumScrollEnd={(e) => {
-              const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN.width)
-              setPreviewIndex(idx)
-            }}
-          >
-            {imageUris.filter(u => !isPdf(u)).map((uri, i) => (
-              <View key={uri + i} style={{ width: SCREEN.width, justifyContent: 'center', alignItems: 'center' }}>
-                <Image
-                  source={{ uri }}
-                  style={{ width: SCREEN.width, height: SCREEN.height * 0.75 }}
-                  resizeMode="contain"
-                />
-              </View>
-            ))}
-          </ScrollView>
-
-          {/* Dots */}
-          {imageUris.filter(u => !isPdf(u)).length > 1 && (
-            <HStack gap={2} justifyContent="center" style={{ paddingBottom: 40 }}>
-              {imageUris.filter(u => !isPdf(u)).map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.dot, i === previewIndex && styles.dotActive]}
-                />
+            {/* Swipeable images */}
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              contentOffset={{ x: previewIndex * SCREEN.width, y: 0 }}
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN.width)
+                setPreviewIndex(idx)
+              }}
+            >
+              {imageUris.filter(u => !isPdf(u)).map((uri, i) => (
+                <View key={uri + i} style={{ width: SCREEN.width, justifyContent: 'center', alignItems: 'center' }}>
+                  <Image
+                    source={{ uri }}
+                    style={{ width: SCREEN.width, height: SCREEN.height * 0.75 }}
+                    resizeMode="contain"
+                  />
+                </View>
               ))}
-            </HStack>
-          )}
-        </View>
-      </Modal>
+            </ScrollView>
+
+            {/* Dots */}
+            {imageUris.filter(u => !isPdf(u)).length > 1 && (
+              <HStack gap={2} justifyContent="center" style={{ paddingBottom: 40 }}>
+                {imageUris.filter(u => !isPdf(u)).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[styles.dot, i === previewIndex && styles.dotActive]}
+                  />
+                ))}
+              </HStack>
+            )}
+          </View>
+        </Modal>
+      )}
     </View>
   )
 }

@@ -3,11 +3,13 @@ import {
   StyleSheet, Image, Modal, Platform,
   Pressable, useWindowDimensions
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { useCallback, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
 import { t, getDeviceLocale } from '../lib/i18n'
+import { LinearGradient } from 'expo-linear-gradient'
 import Icon from '../components/Icon'
 import { showAlert } from '../lib/alert'
 import { shareAsText, shareAsPDF } from '../lib/share-trip'
@@ -40,6 +42,7 @@ function formatDate(date: string) {
 
 export default function TripDetailScreen() {
   const { width: windowWidth } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
   const { isDesktop } = useResponsive()
   const CARD_WIDTH = isDesktop ? Math.min(340, (windowWidth - 300) / 2) : windowWidth - 40
   const { id } = useLocalSearchParams()
@@ -162,7 +165,7 @@ export default function TripDetailScreen() {
       <View style={[styles.fabAnchor, isDesktop && styles.fabAnchorDesktop]}>
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* ── Hero ── */}
-        <View style={[styles.heroCard, isDesktop && styles.heroCardDesktop]}>
+        <View style={[styles.heroCard, isDesktop ? styles.heroCardDesktop : { marginTop: insets.top + 8 }]}>
           <View style={[styles.heroImageWrap, isDesktop && styles.heroImageWrapDesktop, !isDesktop && styles.heroImageWrapMobile]}>
             {trip.cover_image ? (
               <Image source={{ uri: trip.cover_image }} style={styles.heroImage} resizeMode="cover" accessibilityLabel={`Capa da viagem ${trip.title}`} />
@@ -172,30 +175,54 @@ export default function TripDetailScreen() {
               </View>
             )}
 
-            <View style={[
-              styles.heroOverlay,
-              Platform.OS === 'web'
-                ? { backgroundImage: 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.40) 55%, transparent 100%)' } as any
-                : { backgroundColor: 'rgba(0,0,0,0.38)' }
-            ]}>
-              <View style={styles.heroInfo}>
-                <Text style={styles.heroTitle} numberOfLines={2} accessibilityRole="header">{trip.title}</Text>
-                <Text style={styles.heroDestination}>{trip.destination}</Text>
-                {(trip.start_date || trip.end_date) && (
-                  <View style={styles.heroDatesRow}>
-                    <View style={styles.heroDateBox}>
-                      <Text style={styles.heroDateLabel}>Ida</Text>
-                      <Text style={styles.heroDateValue}>{formatDate(trip.start_date)}</Text>
+            {Platform.OS === 'web' ? (
+              <View style={[
+                styles.heroOverlay,
+                { backgroundImage: 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.40) 55%, transparent 100%)' } as any
+              ]}>
+                <View style={styles.heroInfo}>
+                  <Text style={styles.heroTitle} numberOfLines={2} accessibilityRole="header">{trip.title}</Text>
+                  <Text style={styles.heroDestination}>{trip.destination}</Text>
+                  {(trip.start_date || trip.end_date) && (
+                    <View style={styles.heroDatesRow}>
+                      <View style={styles.heroDateBox}>
+                        <Text style={styles.heroDateLabel}>Ida</Text>
+                        <Text style={styles.heroDateValue}>{formatDate(trip.start_date)}</Text>
+                      </View>
+                      <View style={styles.heroDivider} />
+                      <View style={styles.heroDateBox}>
+                        <Text style={styles.heroDateLabel}>Volta</Text>
+                        <Text style={styles.heroDateValue}>{formatDate(trip.end_date)}</Text>
+                      </View>
                     </View>
-                    <View style={styles.heroDivider} />
-                    <View style={styles.heroDateBox}>
-                      <Text style={styles.heroDateLabel}>Volta</Text>
-                      <Text style={styles.heroDateValue}>{formatDate(trip.end_date)}</Text>
-                    </View>
-                  </View>
-                )}
+                  )}
+                </View>
               </View>
-            </View>
+            ) : (
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.82)']}
+                locations={[0, 0.5, 1]}
+                style={styles.heroOverlay}
+              >
+                <View style={styles.heroInfo}>
+                  <Text style={styles.heroTitle} numberOfLines={2} accessibilityRole="header">{trip.title}</Text>
+                  <Text style={styles.heroDestination}>{trip.destination}</Text>
+                  {(trip.start_date || trip.end_date) && (
+                    <View style={styles.heroDatesRow}>
+                      <View style={styles.heroDateBox}>
+                        <Text style={styles.heroDateLabel}>Ida</Text>
+                        <Text style={styles.heroDateValue}>{formatDate(trip.start_date)}</Text>
+                      </View>
+                      <View style={styles.heroDivider} />
+                      <View style={styles.heroDateBox}>
+                        <Text style={styles.heroDateLabel}>Volta</Text>
+                        <Text style={styles.heroDateValue}>{formatDate(trip.end_date)}</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </LinearGradient>
+            )}
 
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} accessibilityLabel="Voltar" accessibilityRole="button">
               <Icon name="arrow-back" size={22} color="#fff" />
@@ -425,10 +452,10 @@ const styles = StyleSheet.create({
   heroCardDesktop: { maxWidth: 960, width: '100%' as any, alignSelf: 'center' as any, marginHorizontal: 0, marginTop: 24, marginBottom: 8 },
   heroImageWrap: { width: '100%', aspectRatio: 32 / 27, position: 'relative' },
   heroImageWrapDesktop: { aspectRatio: 64 / 27 },
-  heroImageWrapMobile: { aspectRatio: (32 / 9) / 2.5 },
+  heroImageWrapMobile: { aspectRatio: 16 / 11 },
   heroImage: { width: '100%', height: '100%' as any },
   heroPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ECECF0' },
-  heroOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 48, paddingBottom: 20 },
+  heroOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingBottom: 20, justifyContent: 'flex-end' },
   heroInfo: { gap: 4 },
   heroTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.4, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   heroDestination: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.82)', marginBottom: 12, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
