@@ -47,7 +47,20 @@ export type Expense = {
   description: string
   date: string
   image_url?: string | null
+  paid_by_user_id?: string | null
   created_at: string
+}
+
+export type ExpenseSplit = {
+  id: string
+  expense_id: string
+  trip_id: string
+  member_user_id: string | null
+  member_email: string | null
+  amount: number
+  notes: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type ItineraryItem = {
@@ -60,8 +73,7 @@ export type ItineraryItem = {
   location: string | null
   image_url?: string | null
   category: string | null
-  latitude?: number | null
-  longitude?: number | null
+  map_link?: string | null
   created_at: string
 }
 

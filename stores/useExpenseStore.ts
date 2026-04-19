@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { offlineQuery } from '../lib/offlineQuery'
 import { useNetworkStore } from '../lib/network'
 import { enqueue } from '../lib/mutationQueue'
-import type { Expense } from '../types'
+import type { Expense, ExpenseSplit } from '../types'
 
 type ExpenseState = {
   expenses: Expense[]
@@ -15,6 +15,12 @@ type ExpenseState = {
   loadBudget: (tripId: string) => Promise<void>
   loadAll: (tripId: string) => Promise<void>
   saveExpense: (tripId: string, data: Record<string, unknown>, editingId?: string | null) => Promise<{ error: string | null }>
+  saveExpenseWithSplit: (
+    tripId: string,
+    expense: Record<string, unknown>,
+    splits: Array<Pick<ExpenseSplit, 'member_user_id' | 'member_email' | 'amount' | 'notes'>>,
+    editingId?: string | null
+  ) => Promise<{ error: string | null }>
   deleteExpense: (expenseId: string, tripId: string) => Promise<{ error: string | null }>
   reset: () => void
 }
@@ -112,6 +118,33 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       set({ expenses: prev }) // rollback
       return { error: error.message }
     }
+    return { error: null }
+  },
+
+  async saveExpenseWithSplit(tripId, expense, splits, editingId) {
+    if (!useNetworkStore.getState().isOnline) {
+      return { error: 'Split de despesas requer conexao para salvar.' }
+    }
+
+    const payloadSplits = splits
+      .filter((item) => Number(item.amount) > 0)
+      .map((item) => ({
+        member_user_id: item.member_user_id ?? null,
+        member_email: item.member_email ?? null,
+        amount: Number(item.amount),
+        notes: item.notes ?? null,
+      }))
+
+    const { error } = await supabase.rpc('upsert_expense_with_split', {
+      p_trip_id: tripId,
+      p_expense: expense,
+      p_splits: payloadSplits,
+      p_editing_id: editingId ?? null,
+    })
+
+    if (error) return { error: error.message }
+
+    await get().loadExpenses(tripId)
     return { error: null }
   },
 

@@ -1,6 +1,5 @@
 import NetInfo from '@react-native-community/netinfo'
 import { create } from 'zustand'
-import { flushQueue } from './mutationQueue'
 
 type NetworkState = {
   isOnline: boolean
@@ -23,9 +22,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       const online = !!(state.isConnected && state.isInternetReachable !== false)
       set({ isOnline: online })
 
-      // Reconectou: flush da fila de mutacoes
+      // Reconectou: flush da fila de mutacoes (lazy import para evitar ciclo)
       if (online && !prev) {
-        flushQueue()
+        import('./mutationQueue').then(({ flushQueue }) => {
+          flushQueue()
+        })
       }
       prev = online
     })

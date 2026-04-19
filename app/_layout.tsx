@@ -92,10 +92,10 @@ export default function RootLayout() {
         <Box flex={1} bg="background" alignItems="center" justifyContent="center" px={6}>
           <Box bg="surface" borderRadius="xl" p={6} maxWidth={560} width="100%" borderWidth={1} borderColor="border">
             <Text variant="h3" weight="700">Configuracao web incompleta</Text>
-            <Text variant="body" color="textSecondary" mt={2}>
+            <Text variant="body" color="textSecondary" style={{ marginTop: 8 }}>
               {supabaseConfigError}
             </Text>
-            <Text variant="bodySmall" color="textTertiary" mt={3}>
+            <Text variant="bodySmall" color="textTertiary" style={{ marginTop: 12 }}>
               Configure essas variaveis no projeto da Vercel e refaca o deploy.
             </Text>
           </Box>

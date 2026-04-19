@@ -20,8 +20,7 @@ import {
 import { showAlert } from '../lib/alert'
 import KeyboardView from '../components/KeyboardView'
 import SheetModal from '../components/SheetModal'
-import MapView from '../components/MapView'
-import { geocodeLocation } from '../lib/geocoding'
+import { openMapLink, isValidMapUrl } from '../lib/maps-link'
 import DesktopLayout from '../components/DesktopLayout'
 import HScrollable from '../components/HScrollable'
 import { Input, Button, useTheme } from '../design-system'
@@ -35,11 +34,6 @@ const CATEGORIES = ITINERARY_CATEGORIES
 
 function getCategoryConfig(value?: string | null) {
   return getItineraryCategoryConf(value)
-}
-
-function openInGoogleMaps(lat: number, lng: number, label?: string) {
-  const q = label ? encodeURIComponent(label) : `${lat},${lng}`
-  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}&query_place_id=&center=${lat},${lng}`)
 }
 
 // Tipo ItineraryItem importado de ../types
@@ -107,9 +101,7 @@ export default function ItineraryScreen() {
   const [itemCategory,    setItemCategory]    = useState('free')
   const [itemImageUri,    setItemImageUri]    = useState<string | null>(null)
   const [imageUploading, setImageUploading]  = useState(false)
-  const [itemLat,         setItemLat]         = useState<number | null>(null)
-  const [itemLng,         setItemLng]         = useState<number | null>(null)
-  const [mapVisible,      setMapVisible]      = useState(false)
+  const [itemMapLink,     setItemMapLink]     = useState('')
 
   const datePlaceholder = getLocalDatePlaceholder()
   const timePlaceholder = getLocalTimePlaceholder()
@@ -128,9 +120,7 @@ export default function ItineraryScreen() {
     setItemLocation('')
     setItemCategory('free')
     setItemImageUri(null)
-    setItemLat(null)
-    setItemLng(null)
-    setMapVisible(false)
+    setItemMapLink('')
   }
 
   function openNewModal() {
@@ -149,9 +139,7 @@ export default function ItineraryScreen() {
     setItemLocation(item.location || '')
     setItemCategory(item.category || 'free')
     setItemImageUri(item.image_url || null)
-    setItemLat(item.latitude ?? null)
-    setItemLng(item.longitude ?? null)
-    setMapVisible(item.latitude != null && item.longitude != null)
+    setItemMapLink(item.map_link || '')
     setModalVisible(true)
   }
 
@@ -186,8 +174,7 @@ export default function ItineraryScreen() {
         location:       itemLocation.trim() || null,
         category:       itemCategory,
         image_url:      itemImageUri || null,
-        latitude:       itemLat,
-        longitude:      itemLng,
+        map_link:       itemMapLink.trim() || null,
       }
       const { error } = await saveItem(tripId, payload, editingId)
       if (error) throw new Error(error)
@@ -247,9 +234,9 @@ export default function ItineraryScreen() {
         <Text style={styles.untimedCardTitle}>{item.title}</Text>
         {item.location ? (
           <View style={styles.timelineLocationRow}>
-            {item.latitude && item.longitude ? (
+            {item.map_link ? (
               <TouchableOpacity
-                onPress={(e) => { e.stopPropagation?.(); openInGoogleMaps(item.latitude!, item.longitude!, item.location ?? undefined) }}
+                onPress={(e) => { e.stopPropagation?.(); openMapLink(item.map_link!, item.location ?? undefined) }}
                 hitSlop={8}
                 style={styles.mapLinkRow}
               >
@@ -319,24 +306,6 @@ export default function ItineraryScreen() {
                 )
               })}
             </HScrollable>
-
-            {/* Bento summary */}
-            <View style={styles.bentoRow}>
-              <View style={styles.bentoCard}>
-                <Text style={styles.bentoLabel}>Eventos do dia</Text>
-                <View style={styles.bentoValueRow}>
-                  <Text style={styles.bentoNumber}>{String(filteredItems.length).padStart(2, '0')}</Text>
-                  <Text style={styles.bentoUnit}>planejados</Text>
-                </View>
-              </View>
-              <View style={styles.bentoCard}>
-                <Text style={styles.bentoLabel}>Total</Text>
-                <View style={styles.bentoValueRow}>
-                  <Text style={styles.bentoNumber}>{String(items.length).padStart(2, '0')}</Text>
-                  <Text style={styles.bentoUnit}>na viagem</Text>
-                </View>
-              </View>
-            </View>
           </View>
         )}
 
@@ -396,9 +365,9 @@ export default function ItineraryScreen() {
                               </Text>
                             ) : null}
                             {item.location ? (
-                              item.latitude && item.longitude ? (
+                              item.map_link ? (
                                 <TouchableOpacity
-                                  onPress={(e) => { e.stopPropagation?.(); openInGoogleMaps(item.latitude!, item.longitude!, item.location ?? undefined) }}
+                                  onPress={(e) => { e.stopPropagation?.(); openMapLink(item.map_link!, item.location ?? undefined) }}
                                   hitSlop={8}
                                   style={styles.eventCardLocRow}
                                 >
@@ -534,7 +503,7 @@ export default function ItineraryScreen() {
                 </View>
               </View>
 
-              {/* Location */}
+              {/* Local */}
               <View style={{ marginTop: 16 }}>
                 <Input
                   label="Local"
@@ -547,60 +516,34 @@ export default function ItineraryScreen() {
                 />
               </View>
 
-              {/* Map picker (opcional) */}
-              <TouchableOpacity
-                style={styles.mapToggleBtn}
-                accessibilityLabel={mapVisible ? 'Ocultar mapa' : itemLat ? 'Ver no mapa' : 'Marcar no mapa'}
-                accessibilityRole="button"
-                onPress={async () => {
-                  if (!mapVisible && !itemLat && itemLocation.trim()) {
-                    const coords = await geocodeLocation(itemLocation.trim())
-                    if (coords) { setItemLat(coords.lat); setItemLng(coords.lng) }
-                  }
-                  setMapVisible(!mapVisible)
-                }}
-                activeOpacity={0.7}
-              >
-                <Icon name={mapVisible ? 'expand-less' : 'map'} size={16} color={C.accent} />
-                <Text style={styles.mapToggleText}>
-                  {mapVisible ? 'Ocultar mapa' : itemLat ? 'Ver no mapa' : 'Marcar no mapa'}
-                </Text>
-                {itemLat != null && <View style={styles.mapPinDot} />}
-              </TouchableOpacity>
-
-              {mapVisible && (
-                <View style={styles.mapContainer}>
-                  <MapView
-                    latitude={itemLat}
-                    longitude={itemLng}
-                    height={200}
-                    editable
-                    onLocationSelect={(lat, lng) => { setItemLat(lat); setItemLng(lng) }}
-                  />
-                  {itemLat != null && itemLng != null && (
-                    <View style={styles.mapActionsRow}>
-                      <TouchableOpacity
-                        style={styles.mapGoogleBtn}
-                        onPress={() => openInGoogleMaps(itemLat!, itemLng!, itemLocation.trim() || undefined)}
-                        accessibilityLabel="Abrir no Google Maps"
-                        accessibilityRole="link"
-                      >
-                        <Icon name="open-in-new" size={14} color={C.accent} />
-                        <Text style={styles.mapGoogleText}>Abrir no Google Maps</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.mapClearBtn}
-                        onPress={() => { setItemLat(null); setItemLng(null) }}
-                        accessibilityLabel="Remover pin do mapa"
-                        accessibilityRole="button"
-                      >
-                        <Icon name="close" size={14} color={C.error} />
-                        <Text style={styles.mapClearText}>Remover pin</Text>
-                      </TouchableOpacity>
-                    </View>
+              {/* Map Link */}
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.sheetLabel}>Link do Local</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Input
+                      placeholder="Link do local no mapa"
+                      value={itemMapLink}
+                      onChangeText={setItemMapLink}
+                      size="lg"
+                      leftIcon={<Icon name="link" size={20} color={C.secondary} />}
+                      accessibilityLabel="Link do local"
+                      numberOfLines={1}
+                    />
+                  </View>
+                  {isValidMapUrl(itemMapLink) && (
+                    <TouchableOpacity
+                      style={styles.mapButtonSquare}
+                      onPress={() => openMapLink(itemMapLink, itemLocation.trim() || 'Local')}
+                      activeOpacity={0.7}
+                      accessibilityLabel="Abrir local no mapa"
+                      accessibilityRole="button"
+                    >
+                      <Icon name="map" size={24} color="#fff" />
+                    </TouchableOpacity>
                   )}
                 </View>
-              )}
+              </View>
 
               {/* Notes */}
               <View style={{ marginTop: 16 }}>
@@ -728,6 +671,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 1.5,
     marginLeft: 4, marginBottom: 8, marginTop: 16,
   },
+  mapButtonSquare: {
+    width: 52, height: 52,
+    borderRadius: 12,
+    backgroundColor: C.accent,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: C.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+  },
   sheetInputRow: {
     backgroundColor: C.surfaceHigh, borderRadius: 16,
     flexDirection: 'row', alignItems: 'center',
@@ -747,28 +697,6 @@ const styles = StyleSheet.create({
   },
   categoryChipText: { fontSize: 13, fontWeight: '600', color: C.secondary },
 
-  // Map picker
-  mapToggleBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginTop: 10, paddingVertical: 8, paddingHorizontal: 4,
-  },
-  mapToggleText: { fontSize: 13, fontWeight: '600', color: C.accent },
-  mapPinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#34C759' },
-  mapContainer: { marginTop: 8 },
-  mapActionsRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  mapGoogleBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: 4,
-  },
-  mapGoogleText: { fontSize: 12, color: C.accent, fontWeight: '600' },
-  mapClearBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: 4,
-  },
-  mapClearText: { fontSize: 12, color: C.error, fontWeight: '500' },
   mapLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   mapLinkText: { fontSize: 12, color: '#34C759', fontWeight: '500', flex: 1 },
 
