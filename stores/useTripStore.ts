@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
+import { offlineQuery } from '../lib/offlineQuery'
 import type { Trip, Flight, Accommodation, Expense, ItineraryItem } from '../types'
 
 type TripDetailState = {
@@ -48,42 +49,67 @@ export const useTripStore = create<TripDetailState>((set, get) => ({
   },
 
   async loadTrip(tripId: string) {
-    const { data, error } = await supabase
-      .from('trips').select('*').eq('id', tripId).single()
-    if (error) { set({ error: error.message }); return }
+    const { data } = await offlineQuery<Trip>(
+      `trip:${tripId}`,
+      async () => {
+        const r = await supabase.from('trips').select('*').eq('id', tripId).single()
+        if (r.error) throw r.error
+        return r.data
+      },
+    )
     if (data) set({ trip: data })
   },
 
   async loadFlights(tripId: string) {
-    const { data, error } = await supabase
-      .from('flights').select('*').eq('trip_id', tripId)
-      .order('departure_datetime', { ascending: true })
-    if (error) { set({ error: error.message }); return }
-    set({ flights: data || [] })
+    const { data } = await offlineQuery<Flight[]>(
+      `flights:${tripId}`,
+      async () => {
+        const r = await supabase.from('flights').select('*').eq('trip_id', tripId)
+          .order('departure_datetime', { ascending: true })
+        if (r.error) throw r.error
+        return r.data || []
+      },
+    )
+    if (data) set({ flights: data })
   },
 
   async loadAccommodations(tripId: string) {
-    const { data, error } = await supabase
-      .from('accommodations').select('*').eq('trip_id', tripId)
-      .order('check_in_date', { ascending: true, nullsFirst: false })
-    if (error) { set({ error: error.message }); return }
-    set({ accommodations: data || [] })
+    const { data } = await offlineQuery<Accommodation[]>(
+      `accommodations:${tripId}`,
+      async () => {
+        const r = await supabase.from('accommodations').select('*').eq('trip_id', tripId)
+          .order('check_in_date', { ascending: true, nullsFirst: false })
+        if (r.error) throw r.error
+        return r.data || []
+      },
+    )
+    if (data) set({ accommodations: data })
   },
 
   async loadExpenses(tripId: string) {
-    const { data, error } = await supabase
-      .from('expenses').select('*').eq('trip_id', tripId)
-      .order('date', { ascending: true })
-    if (error) { set({ error: error.message }); return }
-    set({ expenses: data || [] })
+    const { data } = await offlineQuery<Expense[]>(
+      `trip_expenses:${tripId}`,
+      async () => {
+        const r = await supabase.from('expenses').select('*').eq('trip_id', tripId)
+          .order('date', { ascending: true })
+        if (r.error) throw r.error
+        return r.data || []
+      },
+    )
+    if (data) set({ expenses: data })
   },
 
   async loadItineraryItems(tripId: string) {
-    const { data, error } = await supabase
-      .from('itinerary_items').select('*').eq('trip_id', tripId)
-      .order('scheduled_date', { ascending: true })
-    if (error) { set({ error: error.message }); return }
-    set({ itineraryItems: data || [] })
+    const { data } = await offlineQuery<ItineraryItem[]>(
+      `trip_itinerary:${tripId}`,
+      async () => {
+        const r = await supabase.from('itinerary_items').select('*').eq('trip_id', tripId)
+          .order('scheduled_date', { ascending: true })
+        if (r.error) throw r.error
+        return r.data || []
+      },
+    )
+    if (data) set({ itineraryItems: data })
   },
 
   reset() {

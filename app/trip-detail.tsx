@@ -23,19 +23,8 @@ import AccommodationFormModal from '../components/AccommodationFormModal'
 import ItineraryPreviewSection from '../components/ItineraryPreviewSection'
 import ExpensesPreviewSection from '../components/ExpensesPreviewSection'
 import ChecklistPreviewSection from '../components/ChecklistPreviewSection'
-import { Tabs, FAB, useToast } from '../design-system'
-import type { TabItem } from '../design-system/components/Tabs'
+import { useToast } from '../design-system'
 import type { Flight, Accommodation } from '../types'
-
-type SectionId = 'roteiro' | 'gastos' | 'voos' | 'hospedagens' | 'checklist'
-
-const SECTION_TABS: TabItem<SectionId>[] = [
-  { value: 'roteiro', label: 'Roteiro' },
-  { value: 'gastos', label: 'Gastos' },
-  { value: 'voos', label: 'Voos' },
-  { value: 'hospedagens', label: 'Hospedagens' },
-  { value: 'checklist', label: 'Checklist' },
-]
 
 const C = Colors.dark
 
@@ -72,7 +61,6 @@ export default function TripDetailScreen() {
   }, [storeError])
 
   // ── Local UI state ──
-  const [activeSection, setActiveSection] = useState<SectionId>('roteiro')
   const [flightsModalVisible, setFlightsModalVisible] = useState(false)
   const [accommodationModalVisible, setAccommodationModalVisible] = useState(false)
   const [editingFlight, setEditingFlight] = useState<Flight | null>(null)
@@ -225,96 +213,107 @@ export default function TripDetailScreen() {
 
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
 
-          {/* ── Section Tabs ── */}
-          <View style={styles.tabsRow}>
-            <Tabs
-              value={activeSection}
-              onChange={setActiveSection}
-              items={SECTION_TABS}
-              variant="pill"
-              scrollable
-            />
+          {/* ── Flights ── */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Voos</Text>
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={openNewFlightModal}
+              accessibilityLabel="Adicionar voo"
+              accessibilityRole="button"
+            >
+              <Icon name="add" size={20} color={C.icon} />
+            </TouchableOpacity>
           </View>
+          <FlightSection
+            flights={flights}
+            cardWidth={CARD_WIDTH}
+            isDesktop={isDesktop}
+            activeIndex={activeFlightIndex}
+            onIndexChange={setActiveFlightIndex}
+            onAdd={openNewFlightModal}
+            onEdit={openEditFlightModal}
+          />
 
-          {/* ── Active Section Content ── */}
-          {activeSection === 'roteiro' && (
-            <ItineraryPreviewSection
-              tripId={tripId}
-              tripTitle={trip.title}
-              startDate={trip.start_date}
-              endDate={trip.end_date}
-              itineraryItems={itineraryItems}
-            />
-          )}
+          {/* ── Accommodations ── */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Hospedagens</Text>
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={openNewAccommodationModal}
+              accessibilityLabel="Adicionar hospedagem"
+              accessibilityRole="button"
+            >
+              <Icon name="add" size={20} color={C.icon} />
+            </TouchableOpacity>
+          </View>
+          <AccommodationSection
+            accommodations={accommodations}
+            cardWidth={CARD_WIDTH}
+            isDesktop={isDesktop}
+            activeIndex={activeAccomIndex}
+            onIndexChange={setActiveAccomIndex}
+            onAdd={openNewAccommodationModal}
+            onEdit={openEditAccommodationModal}
+          />
 
-          {activeSection === 'gastos' && (
-            <ExpensesPreviewSection
-              tripId={tripId}
-              tripTitle={trip.title}
-              expenses={expenses}
-            />
-          )}
+          {/* ── Itinerary preview ── */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Roteiro</Text>
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}
+              accessibilityLabel="Abrir roteiro"
+              accessibilityRole="button"
+            >
+              <Icon name="open-in-new" size={20} color={C.icon} />
+            </TouchableOpacity>
+          </View>
+          <ItineraryPreviewSection
+            tripId={tripId}
+            tripTitle={trip.title}
+            startDate={trip.start_date}
+            endDate={trip.end_date}
+            itineraryItems={itineraryItems}
+          />
 
-          {activeSection === 'voos' && (
-            <FlightSection
-              flights={flights}
-              cardWidth={CARD_WIDTH}
-              isDesktop={isDesktop}
-              activeIndex={activeFlightIndex}
-              onIndexChange={setActiveFlightIndex}
-              onAdd={openNewFlightModal}
-              onEdit={openEditFlightModal}
-            />
-          )}
+          {/* ── Expenses preview ── */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Gastos</Text>
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title, openNew: '1' } })}
+              accessibilityLabel="Adicionar gasto"
+              accessibilityRole="button"
+            >
+              <Icon name="add" size={20} color={C.icon} />
+            </TouchableOpacity>
+          </View>
+          <ExpensesPreviewSection
+            tripId={tripId}
+            tripTitle={trip.title}
+            expenses={expenses}
+          />
 
-          {activeSection === 'hospedagens' && (
-            <AccommodationSection
-              accommodations={accommodations}
-              cardWidth={CARD_WIDTH}
-              isDesktop={isDesktop}
-              activeIndex={activeAccomIndex}
-              onIndexChange={setActiveAccomIndex}
-              onAdd={openNewAccommodationModal}
-              onEdit={openEditAccommodationModal}
-            />
-          )}
-
-          {activeSection === 'checklist' && (
-            <ChecklistPreviewSection
-              tripId={tripId}
-              tripTitle={trip.title}
-            />
-          )}
+          {/* ── Checklist ── */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Checklist</Text>
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => router.push({ pathname: '/checklist', params: { id: trip.id, title: trip.title } })}
+              accessibilityLabel="Abrir checklist"
+              accessibilityRole="button"
+            >
+              <Icon name="open-in-new" size={20} color={C.icon} />
+            </TouchableOpacity>
+          </View>
+          <ChecklistPreviewSection
+            tripId={tripId}
+            tripTitle={trip.title}
+          />
 
         </View>
       </ScrollView>
-
-      {/* ── FAB (context-sensitive per active section) ── */}
-      {activeSection === 'roteiro' && (
-        <FAB accessibilityLabel="Abrir roteiro" onPress={() => router.push({ pathname: '/itinerary', params: { id: tripId, title: trip.title, start_date: trip.start_date, end_date: trip.end_date } })}>
-          <Icon name="map" size={26} color="#fff" />
-        </FAB>
-      )}
-      {activeSection === 'gastos' && (
-        <FAB accessibilityLabel="Novo gasto" onPress={() => router.push({ pathname: '/expenses', params: { id: trip.id, title: trip.title, openNew: '1' } })}>
-          <Icon name="add" size={28} color="#fff" />
-        </FAB>
-      )}
-      {activeSection === 'voos' && (
-        <FAB accessibilityLabel="Adicionar voo" onPress={openNewFlightModal}>
-          <Icon name="add" size={28} color="#fff" />
-        </FAB>
-      )}
-      {activeSection === 'hospedagens' && (
-        <FAB accessibilityLabel="Adicionar hospedagem" onPress={openNewAccommodationModal}>
-          <Icon name="add" size={28} color="#fff" />
-        </FAB>
-      )}
-      {activeSection === 'checklist' && (
-        <FAB accessibilityLabel="Abrir checklist" onPress={() => router.push({ pathname: '/checklist', params: { id: tripId, title: trip.title } })}>
-          <Icon name="checklist" size={26} color="#fff" />
-        </FAB>
-      )}
     </View>
 
       {/* ── Flight Form Modal ── */}
@@ -443,7 +442,9 @@ const styles = StyleSheet.create({
   topBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingBottom: 100, overflow: 'hidden' as any },
   contentDesktop: { paddingHorizontal: 40, paddingTop: 28, maxWidth: 960, alignSelf: 'center' as any, width: '100%', overflow: 'hidden' as any },
-  tabsRow: { marginBottom: 16 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: C.primary, letterSpacing: -0.2 },
+  addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.surface, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' },
   menuPanel: { position: 'absolute', top: 104, right: 20, backgroundColor: C.surface, borderRadius: 12, borderWidth: 0.5, borderColor: C.border, minWidth: 180, overflow: 'hidden' },
   menuItem: { paddingVertical: 12, paddingHorizontal: 16 },

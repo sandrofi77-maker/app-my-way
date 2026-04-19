@@ -6,6 +6,7 @@ import { t, getDeviceLocale } from '../lib/i18n'
 import { showAlert } from '../lib/alert'
 import { useExpenseStore } from '../stores/useExpenseStore'
 import SheetModal from '../components/SheetModal'
+import ReceiptPicker from '../components/ReceiptPicker'
 import DesktopLayout from '../components/DesktopLayout'
 import HScrollable from '../components/HScrollable'
 import { formatBRL, applyCurrencyMask, parseCurrencyInput, numberToCurrencyInput } from '../lib/currency'
@@ -18,6 +19,23 @@ import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_CONF } from '../constants/categori
 import type { Expense } from '../types'
 
 const CATEGORIES = EXPENSE_CATEGORIES
+
+/** Parseia image_url (string única legacy ou JSON array) → string[] */
+function parseReceiptUris(value?: string | null): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    if (Array.isArray(parsed)) return parsed.filter(Boolean)
+  } catch { /* não é JSON, é URL simples */ }
+  return [value]
+}
+
+/** Serializa array de URIs → string para salvar (null se vazio) */
+function serializeReceiptUris(uris: string[]): string | null {
+  if (!uris.length) return null
+  if (uris.length === 1) return uris[0]
+  return JSON.stringify(uris)
+}
 
 function formatExpenseDate(date: string) {
   if (!date) return '--'
@@ -45,7 +63,7 @@ export default function ExpensesScreen() {
   const [category, setCategory] = useState('Alimentação')
   const [currency, setCurrency] = useState('R$')
   const [date, setDate] = useState('')
-  const [imageUri, setImageUri] = useState<string | null>(null)
+  const [receiptUris, setReceiptUris] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   useFocusEffect(useCallback(() => {
@@ -55,7 +73,7 @@ export default function ExpensesScreen() {
 
   function resetForm() {
     setEditingExpenseId(null); setAmount(''); setDescription(''); setCategory('Alimentação')
-    setCurrency('R$'); setDate(new Date().toISOString().split('T')[0]); setImageUri(null)
+    setCurrency('R$'); setDate(new Date().toISOString().split('T')[0]); setReceiptUris([])
   }
 
   function openNewExpense() { resetForm(); setModalVisible(true) }
@@ -64,7 +82,7 @@ export default function ExpensesScreen() {
     setEditingExpenseId(expense.id); setAmount(numberToCurrencyInput(expense.amount))
     setDescription(expense.description || ''); setCategory(expense.category || 'Alimentação')
     setCurrency(expense.currency || 'R$'); setDate(expense.date || new Date().toISOString().split('T')[0])
-    setImageUri(expense.image_url || null); setModalVisible(true)
+    setReceiptUris(parseReceiptUris(expense.image_url)); setModalVisible(true)
   }
 
   function handleCloseExpenseModal() { setModalVisible(false); resetForm() }
@@ -76,7 +94,7 @@ export default function ExpensesScreen() {
     const { error } = await saveExpense(tid, {
       amount: parsedAmount, currency, category,
       description: description.trim(), date: date || new Date().toISOString().split('T')[0],
-      image_url: imageUri || null,
+      image_url: serializeReceiptUris(receiptUris),
     }, editingExpenseId)
     setSaving(false)
     if (!error) { setModalVisible(false); resetForm() }
@@ -207,9 +225,19 @@ export default function ExpensesScreen() {
                           {item.description ? <Text variant="caption" color="textSecondary" numberOfLines={1}>{item.description}</Text> : null}
                           <Text variant="caption" color="textTertiary">{formatExpenseDate(item.date)}</Text>
                         </VStack>
-                        <Text variant="body" weight="700">
-                          {item.currency === 'BRL' ? 'R$' : item.currency} {formatBRL(item.amount)}
-                        </Text>
+                        <HStack gap={1.5} alignItems="center">
+                          {parseReceiptUris(item.image_url).length > 0 ? (
+                            <HStack gap={0.5} alignItems="center">
+                              <Icon name="receipt" size={14} color={theme.colors.textTertiary} />
+                              {parseReceiptUris(item.image_url).length > 1 ? (
+                                <Text variant="caption" color="textTertiary">{parseReceiptUris(item.image_url).length}</Text>
+                              ) : null}
+                            </HStack>
+                          ) : null}
+                          <Text variant="body" weight="700">
+                            {item.currency === 'BRL' ? 'R$' : item.currency} {formatBRL(item.amount)}
+                          </Text>
+                        </HStack>
                       </HStack>
                     </Card>
                   </Pressable>
@@ -281,6 +309,14 @@ export default function ExpensesScreen() {
               onChangeText={setDescription}
               size="lg"
               leftIcon={<Icon name="notes" size={20} color={theme.colors.textSecondary} />}
+            />
+          </Box>
+
+          <Box mt={4}>
+            <ReceiptPicker
+              imageUris={receiptUris}
+              onChanged={setReceiptUris}
+              onUploadingChange={(v) => setSaving(v)}
             />
           </Box>
 

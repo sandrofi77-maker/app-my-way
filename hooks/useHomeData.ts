@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { supabase } from '../lib/supabase'
+import { offlineQuery } from '../lib/offlineQuery'
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -156,59 +157,66 @@ export function useHomeData() {
         setAvatarUrl(rawAvatar?.startsWith('https://') ? rawAvatar : null)
       }
 
-      const { data, error: tripsError } = await supabase
-        .from('trips')
-        .select('*')
-        .order('created_at', { ascending: false })
-      if (tripsError) {
-        setError('Erro ao carregar viagens.')
-        return
-      }
+      const { data: cachedTrips } = await offlineQuery<TripWithMeta[]>(
+        'home:trips',
+        async () => {
+          const { data, error: tripsError } = await supabase
+            .from('trips')
+            .select('*')
+            .order('created_at', { ascending: false })
+          if (tripsError) throw tripsError
 
-      const tripsData = (data || []) as Trip[]
-      const tripIds = tripsData.map((trip) => trip.id)
-      let flightsData: FlightSummary[] = []
-      const expenseTotals = new Map<string, number>()
+          const tripsData = (data || []) as Trip[]
+          const tripIds = tripsData.map((trip) => trip.id)
+          let flightsData: FlightSummary[] = []
+          const expenseTotals = new Map<string, number>()
 
-      if (tripIds.length) {
-        const { data: flights, error: flightsError } = await supabase
-          .from('flights')
-          .select('trip_id, departure_datetime, arrival_datetime')
-          .in('trip_id', tripIds)
-        if (!flightsError) flightsData = (flights || []) as FlightSummary[]
+          if (tripIds.length) {
+            const { data: flights, error: flightsError } = await supabase
+              .from('flights')
+              .select('trip_id, departure_datetime, arrival_datetime')
+              .in('trip_id', tripIds)
+            if (!flightsError) flightsData = (flights || []) as FlightSummary[]
 
-        const { data: expensesData } = await supabase
-          .from('expenses')
-          .select('trip_id, amount')
-          .in('trip_id', tripIds)
-        if (expensesData) {
-          expensesData.forEach((e: { trip_id: string; amount: number }) => {
-            expenseTotals.set(e.trip_id, (expenseTotals.get(e.trip_id) || 0) + e.amount)
+            const { data: expensesData } = await supabase
+              .from('expenses')
+              .select('trip_id, amount')
+              .in('trip_id', tripIds)
+            if (expensesData) {
+              expensesData.forEach((e: { trip_id: string; amount: number }) => {
+                expenseTotals.set(e.trip_id, (expenseTotals.get(e.trip_id) || 0) + e.amount)
+              })
+            }
+          }
+
+          const now = new Date()
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+          const flightsByTrip = groupFlightsByTrip(flightsData)
+          const toCompleteIds: string[] = []
+
+          const prepared = tripsData.map((trip) => {
+            const tripFlights = flightsByTrip.get(trip.id) || []
+            const lastFlightTime = getLastFlightTime(tripFlights)
+            const isCompleted = trip.status === 'completed' || (lastFlightTime !== null && lastFlightTime < now.getTime())
+            if (isCompleted && trip.status !== 'completed') toCompleteIds.push(trip.id)
+            const nextDateTime = getNextTripDate(trip, tripFlights, todayStart)
+            const daysRemaining = nextDateTime !== null
+              ? Math.max(0, Math.ceil((nextDateTime - todayStart) / MS_PER_DAY))
+              : null
+            return { ...trip, nextDateTime, daysRemaining, isCompleted, lastFlightTime, expenseTotal: expenseTotals.get(trip.id) || 0 }
           })
-        }
-      }
 
-      const now = new Date()
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-      const flightsByTrip = groupFlightsByTrip(flightsData)
-      const toCompleteIds: string[] = []
+          if (toCompleteIds.length) {
+            await supabase.from('trips').update({ status: 'completed' }).in('id', toCompleteIds)
+          }
 
-      const prepared = tripsData.map((trip) => {
-        const tripFlights = flightsByTrip.get(trip.id) || []
-        const lastFlightTime = getLastFlightTime(tripFlights)
-        const isCompleted = trip.status === 'completed' || (lastFlightTime !== null && lastFlightTime < now.getTime())
-        if (isCompleted && trip.status !== 'completed') toCompleteIds.push(trip.id)
-        const nextDateTime = getNextTripDate(trip, tripFlights, todayStart)
-        const daysRemaining = nextDateTime !== null
-          ? Math.max(0, Math.ceil((nextDateTime - todayStart) / MS_PER_DAY))
-          : null
-        return { ...trip, nextDateTime, daysRemaining, isCompleted, lastFlightTime, expenseTotal: expenseTotals.get(trip.id) || 0 }
-      })
+          return prepared
+        },
+      )
 
-      if (toCompleteIds.length) {
-        await supabase.from('trips').update({ status: 'completed' }).in('id', toCompleteIds)
-      }
-      setTrips(prepared)
+      if (cachedTrips) setTrips(cachedTrips)
+    } catch {
+      setError('Erro ao carregar viagens.')
     } finally {
       setLoading(false)
     }

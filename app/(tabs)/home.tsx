@@ -12,11 +12,11 @@ import { formatBRL } from '../../lib/currency'
 import NewTripSheet from '../../components/NewTripSheet'
 import {
   useHomeData, sortOpenTrips, sortCompletedTrips,
-  formatTripDate, getBadgeText, getBadgeTone, getDaysBetween,
+  formatTripDate, getBadgeText, getDaysBetween,
   type TripWithMeta,
 } from '../../hooks/useHomeData'
 import {
-  Box, Text, HStack, VStack, Card, Badge, Button, Pressable,
+  Box, Text, HStack, VStack, Card, Button, Pressable,
   Skeleton, EmptyState, FAB, Avatar, useTheme, IconButton, useToast,
 } from '../../design-system'
 
@@ -114,11 +114,9 @@ export default function HomeScreen() {
                 <Icon name="flight" size={44} color={theme.colors.textTertiary} />
               </Box>
             )}
-            <Box position="absolute" top={16} left={16}>
-              <Badge tone={getBadgeTone(item)} variant="solid" size="sm">
-                {getBadgeText(item)}
-              </Badge>
-            </Box>
+            <View style={styles.daysBadge}>
+              <Text variant="bodySmall" weight="700">{getBadgeText(item)}</Text>
+            </View>
           </View>
 
           <VStack flex={1} px={7} py={6} gap={3}>
@@ -157,11 +155,9 @@ export default function HomeScreen() {
                 <Icon name="flight" size={44} color={theme.colors.textTertiary} />
               </Box>
             )}
-            <Box position="absolute" top={14} left={14}>
-              <Badge tone={getBadgeTone(item)} variant="solid" size="sm">
-                {getBadgeText(item)}
-              </Badge>
-            </Box>
+            <View style={styles.daysBadge}>
+              <Text variant="bodySmall" weight="700">{getBadgeText(item)}</Text>
+            </View>
           </View>
 
           <VStack gap={1.5} p={4} pt={3.5}>
@@ -341,4 +337,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   budgetBar: { height: 6, borderRadius: 999 },
+  daysBadge: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
 })

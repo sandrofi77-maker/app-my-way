@@ -17,10 +17,8 @@ function getDaysUntil(dateStr?: string | null): string | null {
   const diff = Math.round((target.getTime() - today.getTime()) / 86400000)
   if (diff < 0) return null
   if (diff === 0) return 'Hoje'
-  if (diff === 1) return 'Amanhã'
-  if (diff < 30) return `Em ${diff} dias`
-  const months = Math.round(diff / 30)
-  return `Em ${months} ${months === 1 ? 'mês' : 'meses'}`
+  if (diff === 1) return 'Falta 1 dia'
+  return `Faltam ${diff} dias`
 }
 
 function formatDateRange(checkIn?: string | null, checkOut?: string | null): string {

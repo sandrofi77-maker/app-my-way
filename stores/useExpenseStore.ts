@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
+import { offlineQuery } from '../lib/offlineQuery'
+import { useNetworkStore } from '../lib/network'
+import { enqueue } from '../lib/mutationQueue'
 import type { Expense } from '../types'
 
 type ExpenseState = {
@@ -36,15 +39,29 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   },
 
   async loadExpenses(tripId: string) {
-    const { data, error } = await supabase
-      .from('expenses').select('*').eq('trip_id', tripId)
-      .order('created_at', { ascending: false })
-    if (!error) set({ expenses: data || [] })
+    const { data } = await offlineQuery<Expense[]>(
+      `expenses:${tripId}`,
+      async () => {
+        const r = await supabase
+          .from('expenses').select('*').eq('trip_id', tripId)
+          .order('created_at', { ascending: false })
+        if (r.error) throw r.error
+        return r.data || []
+      },
+    )
+    if (data) set({ expenses: data })
   },
 
   async loadBudget(tripId: string) {
-    const { data } = await supabase
-      .from('trips').select('budget, budget_currency').eq('id', tripId).single()
+    const { data } = await offlineQuery<{ budget: number | null; budget_currency: string | null }>(
+      `budget:${tripId}`,
+      async () => {
+        const r = await supabase
+          .from('trips').select('budget, budget_currency').eq('id', tripId).single()
+        if (r.error) throw r.error
+        return r.data
+      },
+    )
     if (data) set({
       budget: data.budget ?? null,
       budgetCurrency: data.budget_currency ?? null,
@@ -59,6 +76,11 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     const prev = get().expenses
     if (editingId) {
       set({ expenses: prev.map(e => e.id === editingId ? { ...e, ...payload } as Expense : e) })
+    }
+
+    if (!useNetworkStore.getState().isOnline) {
+      await enqueue('expense', editingId ? 'update' : 'insert', [tripId, row, editingId])
+      return { error: null }
     }
 
     const request = editingId
@@ -80,6 +102,11 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     const prev = get().expenses
     set({ expenses: prev.filter(e => e.id !== expenseId) })
 
+    if (!useNetworkStore.getState().isOnline) {
+      await enqueue('expense', 'delete', [expenseId, tripId])
+      return { error: null }
+    }
+
     const { error } = await supabase.from('expenses').delete().eq('id', expenseId)
     if (error) {
       set({ expenses: prev }) // rollback
@@ -92,3 +119,19 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     set(initialState)
   },
 }))
+
+// Executor para o mutationQueue — replay offline mutations
+export async function expenseExecutor(action: string, args: unknown[]): Promise<void> {
+  if (action === 'insert' || action === 'update') {
+    const [, row, editingId] = args as [string, Record<string, unknown>, string | null]
+    const request = editingId
+      ? supabase.from('expenses').update(row).eq('id', editingId)
+      : supabase.from('expenses').insert(row)
+    const { error } = await request
+    if (error) throw error
+  } else if (action === 'delete') {
+    const [expenseId] = args as [string]
+    const { error } = await supabase.from('expenses').delete().eq('id', expenseId)
+    if (error) throw error
+  }
+}

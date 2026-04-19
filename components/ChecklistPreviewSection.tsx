@@ -16,12 +16,12 @@ export default function ChecklistPreviewSection({ tripId, tripTitle }: Props) {
       style={styles.card}
       activeOpacity={0.85}
       onPress={() => router.push({ pathname: '/checklist', params: { id: tripId, title: tripTitle } })}
-      accessibilityLabel="Lista de bagagem e tarefas"
+      accessibilityLabel="Checklist da viagem"
       accessibilityRole="button"
     >
       <Icon name="checklist" size={28} color={C.tertiary} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitle}>Lista de bagagem e tarefas</Text>
+        <Text style={styles.cardTitle}>Checklist da viagem</Text>
         <Text style={styles.cardSub}>Organize o que levar e o que fazer</Text>
       </View>
       <Icon name="chevron-right" size={20} color={C.tertiary} />

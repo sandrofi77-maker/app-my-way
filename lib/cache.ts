@@ -41,6 +41,22 @@ export async function getCache<T>(key: string): Promise<T | null> {
 }
 
 /**
+ * Le dados do cache ignorando TTL (retorna mesmo se expirado).
+ * Usado no modo offline para exibir dados "velhos" ao usuario.
+ */
+export async function getCacheIgnoreTTL<T>(key: string): Promise<T | null> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_PREFIX + key)
+    if (!raw) return null
+    const entry: CacheEntry<T> = JSON.parse(raw)
+    return entry.data
+  } catch (err) {
+    console.warn('[Cache] getCacheIgnoreTTL failed:', key, err)
+    return null
+  }
+}
+
+/**
  * Remove uma entrada do cache.
  */
 export async function removeCache(key: string): Promise<void> {

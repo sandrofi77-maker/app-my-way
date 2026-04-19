@@ -14,7 +14,11 @@ export async function uploadImage(localUri: string, folder: string): Promise<str
   if (!user) throw new Error('Usuário não autenticado')
 
   const ext = localUri.split('.').pop()?.toLowerCase() || 'jpg'
-  const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg'
+  const mimeMap: Record<string, string> = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    gif: 'image/gif', webp: 'image/webp', pdf: 'application/pdf',
+  }
+  const mimeType = mimeMap[ext] || 'image/jpeg'
   const filename = `${user.id}/${folder}/${Date.now()}.${ext}`
 
   let body: ArrayBuffer
