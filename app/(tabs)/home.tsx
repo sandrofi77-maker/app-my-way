@@ -1,9 +1,9 @@
 import {
-  View, ScrollView, Platform, StyleSheet
+  View, FlatList, Platform, StyleSheet
 } from 'react-native'
 import Icon from '../../components/Icon'
 import CachedImage from '../../components/CachedImage'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import DesktopLayout from '../../components/DesktopLayout'
@@ -189,9 +189,14 @@ export default function HomeScreen() {
   }
 
   const { isDesktop } = useResponsive()
-  const Wrapper = isDesktop ? View : ScrollView
 
-  const content = (
+  const renderFlatItem = useCallback(({ item, index }: { item: TripWithMeta; index: number }) => (
+    <View>{renderTrip({ item, index })}</View>
+  ), [visibleTrips, isDesktop, theme])
+
+  const keyExtractor = useCallback((item: TripWithMeta) => item.id, [])
+
+  const listHeader = (
     <>
       <HStack py={isDesktop ? 4 : 6} alignItems="center">
         <Box flex={1}>
@@ -253,33 +258,41 @@ export default function HomeScreen() {
         ))}
       </Box>
 
-      {showLoading ? (
-        <SkeletonList />
-      ) : visibleTrips.length === 0 ? (
-        <Box mt={20}>
-          <EmptyState
-            icon={<Icon name="flight" size={48} color={theme.colors.textTertiary} />}
-            title={activeTab === 'open' ? 'Nenhuma viagem em aberto' : 'Nenhuma viagem concluida'}
-            description={activeTab === 'open' ? 'Crie sua primeira viagem!' : 'Finalize uma viagem para ver aqui.'}
-          />
-        </Box>
-      ) : (
-        visibleTrips.map((item, index) => (
-          <View key={item.id}>{renderTrip({ item, index })}</View>
-        ))
-      )}
+      {showLoading && <SkeletonList />}
     </>
   )
 
+  const listEmpty = !showLoading ? (
+    <Box mt={20}>
+      <EmptyState
+        icon={<Icon name="flight" size={48} color={theme.colors.textTertiary} />}
+        title={activeTab === 'open' ? 'Nenhuma viagem em aberto' : 'Nenhuma viagem concluida'}
+        description={activeTab === 'open' ? 'Crie sua primeira viagem!' : 'Finalize uma viagem para ver aqui.'}
+      />
+    </Box>
+  ) : null
+
   return (
     <DesktopLayout>
-      <Wrapper
-        style={{ flex: 1, backgroundColor: theme.colors.background }}
-        {...(!isDesktop && { contentContainerStyle: { paddingHorizontal: 20, paddingBottom: 100 + insets.bottom, paddingTop: insets.top } })}
-        {...(isDesktop && { style: { flex: 1, backgroundColor: theme.colors.background, paddingTop: 16 } })}
-      >
-        {content}
-      </Wrapper>
+      <FlatList
+        data={showLoading ? [] : visibleTrips}
+        renderItem={renderFlatItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        showsVerticalScrollIndicator={false}
+        style={isDesktop
+          ? { flex: 1, backgroundColor: theme.colors.background, paddingTop: 16 }
+          : { flex: 1, backgroundColor: theme.colors.background }
+        }
+        contentContainerStyle={!isDesktop
+          ? { paddingHorizontal: 20, paddingBottom: 100 + insets.bottom, paddingTop: insets.top }
+          : undefined
+        }
+      />
       {!isDesktop && (
         <FAB
           accessibilityLabel="Nova viagem"
@@ -291,7 +304,10 @@ export default function HomeScreen() {
       <NewTripSheet
         visible={showNewTrip}
         onClose={() => setShowNewTrip(false)}
-        onCreated={() => { setShowNewTrip(false); reload() }}
+        onCreated={(tripId) => {
+          setShowNewTrip(false)
+          router.push({ pathname: '/trip-detail', params: { id: tripId } })
+        }}
       />
     </DesktopLayout>
   )

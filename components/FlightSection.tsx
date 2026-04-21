@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import Icon from './Icon'
 import HScrollable from './HScrollable'
@@ -34,7 +35,7 @@ type Props = {
   onEdit: (flight: Flight) => void
 }
 
-export default function FlightSection({ flights, cardWidth, isDesktop, activeIndex, onIndexChange, onAdd, onEdit }: Props) {
+export default memo(function FlightSection({ flights, cardWidth, isDesktop, activeIndex, onIndexChange, onAdd, onEdit }: Props) {
   return (
     <>
       {flights.length === 0 ? (
@@ -100,7 +101,7 @@ export default function FlightSection({ flights, cardWidth, isDesktop, activeInd
       )}
     </>
   )
-}
+})
 
 const styles = StyleSheet.create({
   emptyCard: { backgroundColor: C.surface, borderRadius: 20, padding: 24, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', gap: 10 },

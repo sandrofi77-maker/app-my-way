@@ -1,6 +1,6 @@
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Image, Modal, Platform,
+  StyleSheet, Modal, Platform,
   Pressable, useWindowDimensions
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -11,12 +11,14 @@ import { Colors } from '../constants/Colors'
 import { t, getDeviceLocale } from '../lib/i18n'
 import { LinearGradient } from 'expo-linear-gradient'
 import Icon from '../components/Icon'
+import CachedImage from '../components/CachedImage'
 import { showAlert } from '../lib/alert'
 import { shareAsText, shareAsPDF } from '../lib/share-trip'
 import DesktopLayout from '../components/DesktopLayout'
 import TripShareSheet from '../components/TripShareSheet'
 import { useResponsive } from '../hooks/useResponsive'
 import { useTripStore } from '../stores/useTripStore'
+import { useShallow } from 'zustand/react/shallow'
 
 import FlightSection from '../components/FlightSection'
 import AccommodationSection from '../components/AccommodationSection'
@@ -25,7 +27,7 @@ import AccommodationFormModal from '../components/AccommodationFormModal'
 import ItineraryPreviewSection from '../components/ItineraryPreviewSection'
 import ExpensesPreviewSection from '../components/ExpensesPreviewSection'
 import ChecklistPreviewSection from '../components/ChecklistPreviewSection'
-import { useToast } from '../design-system'
+import { useToast, Skeleton } from '../design-system'
 import type { Flight, Accommodation } from '../types'
 
 const C = Colors.dark
@@ -51,7 +53,13 @@ export default function TripDetailScreen() {
   const toast = useToast()
 
   // ── Store ──
-  const { trip, flights, accommodations, expenses, itineraryItems, error: storeError, loadAll, loadFlights, loadAccommodations } = useTripStore()
+  const { trip, flights, accommodations, expenses, itineraryItems, error: storeError, loadAll, loadFlights, loadAccommodations } = useTripStore(
+    useShallow((s) => ({
+      trip: s.trip, flights: s.flights, accommodations: s.accommodations,
+      expenses: s.expenses, itineraryItems: s.itineraryItems,
+      error: s.error, loadAll: s.loadAll, loadFlights: s.loadFlights, loadAccommodations: s.loadAccommodations,
+    }))
+  )
 
   useFocusEffect(
     useCallback(() => {
@@ -154,7 +162,15 @@ export default function TripDetailScreen() {
   if (!trip) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.loadingText}>Carregando...</Text>
+        <View style={{ marginHorizontal: 16, marginTop: 60 }}>
+          <Skeleton width="100%" height={220} borderRadius="lg" />
+          <View style={{ marginTop: 24, gap: 16, paddingHorizontal: 4 }}>
+            <Skeleton width="60%" height={20} />
+            <Skeleton width="40%" height={16} />
+            <Skeleton width="100%" height={100} borderRadius="md" />
+            <Skeleton width="100%" height={100} borderRadius="md" />
+          </View>
+        </View>
       </View>
     )
   }
@@ -168,7 +184,7 @@ export default function TripDetailScreen() {
         <View style={[styles.heroCard, isDesktop ? styles.heroCardDesktop : { marginTop: insets.top + 8 }]}>
           <View style={[styles.heroImageWrap, isDesktop && styles.heroImageWrapDesktop, !isDesktop && styles.heroImageWrapMobile]}>
             {trip.cover_image ? (
-              <Image source={{ uri: trip.cover_image }} style={styles.heroImage} resizeMode="cover" accessibilityLabel={`Capa da viagem ${trip.title}`} />
+              <CachedImage uri={trip.cover_image} style={styles.heroImage} resizeMode="cover" accessibilityLabel={`Capa da viagem ${trip.title}`} />
             ) : (
               <View style={styles.heroPlaceholder}>
                 <Icon name="flight" size={48} color={C.tertiary} />

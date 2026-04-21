@@ -44,11 +44,15 @@ export default function NewTripScreen() {
       showAlert(t('attention_title'), t('invalid_return_date'))
       return
     }
+    if (startDateISO && endDateISO && endDateISO < startDateISO) {
+      showAlert(t('attention_title'), 'A data de volta deve ser igual ou posterior à data de ida.')
+      return
+    }
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error(t('session_expired'))
-      const { error } = await supabase.from('trips').insert({
+      const { data: inserted, error } = await supabase.from('trips').insert({
         title: title.trim(),
         destination: destination.trim(),
         start_date: startDateISO,
@@ -58,9 +62,9 @@ export default function NewTripScreen() {
         status: 'planning',
         budget: budget.trim() ? parseCurrencyInput(budget) : null,
         budget_currency: budgetCurrency,
-      })
+      }).select('id').single()
       if (error) throw error
-      router.back()
+      router.replace({ pathname: '/trip-detail', params: { id: inserted.id } })
     } catch (err: unknown) {
       showAlert(t('error_title'), err instanceof Error ? err.message : t('generic_error'))
     } finally {

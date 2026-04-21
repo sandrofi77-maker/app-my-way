@@ -6,12 +6,19 @@ import { useNetworkStore } from '../lib/network'
 import { useTheme, Text, HStack } from '../design-system'
 
 export default function SyncIndicator() {
-  const { isOnline, pendingCount } = useNetworkStore()
+  const { isOnline, pendingCount, lastSyncFailure, clearSyncFailure } = useNetworkStore()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const opacity = useRef(new Animated.Value(0)).current
 
-  const visible = !isOnline || pendingCount > 0
+  // Auto-dismiss sync failure after 5s
+  useEffect(() => {
+    if (!lastSyncFailure) return
+    const timer = setTimeout(clearSyncFailure, 5000)
+    return () => clearTimeout(timer)
+  }, [lastSyncFailure])
+
+  const visible = !isOnline || pendingCount > 0 || !!lastSyncFailure
 
   useEffect(() => {
     Animated.timing(opacity, {
@@ -23,12 +30,14 @@ export default function SyncIndicator() {
 
   if (!visible) return null
 
-  const label = !isOnline
+  const label = lastSyncFailure
+    ? 'Falha ao sincronizar. Dados podem ter sido perdidos.'
+    : !isOnline
     ? 'Você está offline'
     : `Sincronizando (${pendingCount})...`
 
-  const iconName = !isOnline ? 'cloud-off' : 'sync'
-  const bgColor = !isOnline ? theme.colors.warning : theme.colors.brand
+  const iconName = lastSyncFailure ? 'error-outline' : !isOnline ? 'cloud-off' : 'sync'
+  const bgColor = lastSyncFailure ? theme.colors.error : !isOnline ? theme.colors.warning : theme.colors.brand
 
   return (
     <Animated.View

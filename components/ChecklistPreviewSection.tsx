@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { router } from 'expo-router'
 import Icon from './Icon'
@@ -10,7 +11,7 @@ type Props = {
   tripTitle: string
 }
 
-export default function ChecklistPreviewSection({ tripId, tripTitle }: Props) {
+export default memo(function ChecklistPreviewSection({ tripId, tripTitle }: Props) {
   return (
     <TouchableOpacity
       style={styles.card}
@@ -27,7 +28,7 @@ export default function ChecklistPreviewSection({ tripId, tripTitle }: Props) {
       <Icon name="chevron-right" size={20} color={C.tertiary} />
     </TouchableOpacity>
   )
-}
+})
 
 const styles = StyleSheet.create({
   card: {

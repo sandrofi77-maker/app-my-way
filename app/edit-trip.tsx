@@ -55,6 +55,10 @@ export default function EditTripScreen() {
       showAlert(t('attention_title'), t('invalid_return_date'))
       return
     }
+    if (startDateISO && endDateISO && endDateISO < startDateISO) {
+      showAlert(t('attention_title'), 'A data de volta deve ser igual ou posterior à data de ida.')
+      return
+    }
     setLoading(true)
     try {
       const { error } = await supabase

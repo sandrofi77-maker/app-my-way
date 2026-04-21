@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react'
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import { showAlert } from '../lib/alert'
 import { useChecklistStore } from '../stores/useChecklistStore'
+import { useShallow } from 'zustand/react/shallow'
 import {
   Box, Text, VStack, HStack, Card, Input, Button, FAB,
   EmptyState, Pressable, useTheme, IconButton, Progress, useToast,
@@ -21,7 +22,12 @@ export default function ChecklistScreen() {
   const toast = useToast()
   const { id: tripId, title: tripTitle } = useLocalSearchParams()
   const tid = String(tripId || '')
-  const store = useChecklistStore()
+  const store = useChecklistStore(
+    useShallow((s) => ({
+      items: s.items, loadItems: s.loadItems, addItem: s.addItem,
+      toggleItem: s.toggleItem, deleteItem: s.deleteItem, addTemplate: s.addTemplate,
+    }))
+  )
   const { items } = store
 
   const [modalVisible, setModalVisible] = useState(false)

@@ -51,6 +51,32 @@ type LocaleStrings = {
   invalid_email: string
   password_too_short: string
   required_name: string
+  // ── Home / badges ──
+  completed_badge: string
+  no_date_badge: string
+  today_badge: string
+  days_remaining_one: string
+  days_remaining_other: string
+  trips_load_error: string
+  planned_trips_tab: string
+  completed_trips_tab: string
+  no_open_trips: string
+  no_completed_trips: string
+  create_first_trip: string
+  finish_trip_hint: string
+  days_between_trips: string
+  // ── Sections ──
+  no_flights: string
+  no_accommodations: string
+  no_expenses: string
+  // ── Validation ──
+  arrival_before_departure: string
+  checkout_before_checkin: string
+  end_before_start: string
+  // ── Sync ──
+  sync_failure: string
+  offline_label: string
+  syncing_label: string
 }
 
 const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
@@ -107,6 +133,28 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     invalid_email: 'Digite um email válido.',
     password_too_short: 'A senha deve ter pelo menos 6 caracteres.',
     required_name: 'Preencha o nome de exibição.',
+    completed_badge: 'Concluída',
+    no_date_badge: 'Sem data',
+    today_badge: 'Hoje',
+    days_remaining_one: 'Falta 1 dia',
+    days_remaining_other: 'Faltam {count} dias',
+    trips_load_error: 'Erro ao carregar viagens.',
+    planned_trips_tab: 'Viagens planejadas',
+    completed_trips_tab: 'Viagens concluídas',
+    no_open_trips: 'Nenhuma viagem em aberto',
+    no_completed_trips: 'Nenhuma viagem concluída',
+    create_first_trip: 'Crie sua primeira viagem!',
+    finish_trip_hint: 'Finalize uma viagem para ver aqui.',
+    days_between_trips: '{count} {count, =1{dia} other{dias}} entre viagens',
+    no_flights: 'Nenhum voo cadastrado',
+    no_accommodations: 'Nenhuma hospedagem cadastrada',
+    no_expenses: 'Nenhum gasto registrado ainda',
+    arrival_before_departure: 'A data/hora de chegada deve ser posterior à de saída.',
+    checkout_before_checkin: 'A data de check-out deve ser igual ou posterior ao check-in.',
+    end_before_start: 'A data de volta deve ser igual ou posterior à data de ida.',
+    sync_failure: 'Falha ao sincronizar. Dados podem ter sido perdidos.',
+    offline_label: 'Você está offline',
+    syncing_label: 'Sincronizando ({count})...',
   },
   en: {
     permission_needed_title: 'Permission required',
@@ -161,6 +209,28 @@ const STRINGS: Record<'pt' | 'en', LocaleStrings> = {
     invalid_email: 'Please enter a valid email.',
     password_too_short: 'Password must be at least 6 characters.',
     required_name: 'Please enter a display name.',
+    completed_badge: 'Completed',
+    no_date_badge: 'No date',
+    today_badge: 'Today',
+    days_remaining_one: '1 day left',
+    days_remaining_other: '{count} days left',
+    trips_load_error: 'Failed to load trips.',
+    planned_trips_tab: 'Planned trips',
+    completed_trips_tab: 'Completed trips',
+    no_open_trips: 'No open trips',
+    no_completed_trips: 'No completed trips',
+    create_first_trip: 'Create your first trip!',
+    finish_trip_hint: 'Complete a trip to see it here.',
+    days_between_trips: '{count} {count, =1{day} other{days}} between trips',
+    no_flights: 'No flights added',
+    no_accommodations: 'No accommodations added',
+    no_expenses: 'No expenses recorded yet',
+    arrival_before_departure: 'Arrival date/time must be after departure.',
+    checkout_before_checkin: 'Check-out date must be on or after check-in.',
+    end_before_start: 'Return date must be on or after departure date.',
+    sync_failure: 'Sync failed. Data may have been lost.',
+    offline_label: 'You are offline',
+    syncing_label: 'Syncing ({count})...',
   },
 }
 

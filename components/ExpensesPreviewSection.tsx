@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { router } from 'expo-router'
 import Icon from './Icon'
@@ -14,7 +15,7 @@ type Props = {
   expenses: Expense[]
 }
 
-export default function ExpensesPreviewSection({ tripId, tripTitle, expenses }: Props) {
+export default memo(function ExpensesPreviewSection({ tripId, tripTitle, expenses }: Props) {
   const navigateToExpenses = () =>
     router.push({ pathname: '/expenses', params: { id: tripId, title: tripTitle } })
 
@@ -98,7 +99,7 @@ export default function ExpensesPreviewSection({ tripId, tripTitle, expenses }: 
       })}
     </TouchableOpacity>
   )
-}
+})
 
 const styles = StyleSheet.create({
   emptyCard: { backgroundColor: C.surface, borderRadius: 16, padding: 24, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', gap: 6, marginBottom: 16 },

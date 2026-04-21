@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import Icon from './Icon'
 import CachedImage from './CachedImage'
@@ -55,7 +56,7 @@ type Props = {
   onEdit: (accommodation: Accommodation) => void
 }
 
-export default function AccommodationSection({ accommodations, cardWidth, isDesktop, activeIndex, onIndexChange, onAdd, onEdit }: Props) {
+export default memo(function AccommodationSection({ accommodations, cardWidth, isDesktop, activeIndex, onIndexChange, onAdd, onEdit }: Props) {
   return (
     <>
       {accommodations.length === 0 ? (
@@ -154,7 +155,7 @@ export default function AccommodationSection({ accommodations, cardWidth, isDesk
       )}
     </>
   )
-}
+})
 
 const styles = StyleSheet.create({
   emptyCard: { backgroundColor: C.surface, borderRadius: 20, padding: 24, marginBottom: 16, borderWidth: 0.5, borderColor: C.border, alignItems: 'center', gap: 10 },

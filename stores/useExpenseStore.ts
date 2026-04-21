@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { offlineQuery } from '../lib/offlineQuery'
 import { useNetworkStore } from '../lib/network'
 import { enqueue } from '../lib/mutationQueue'
+import { invalidateByPrefix } from '../lib/cache'
 import type { Expense, ExpenseSplit } from '../types'
 
 type ExpenseState = {
@@ -99,7 +100,10 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       return { error: error.message }
     }
 
-    await get().loadExpenses(tripId)
+    await Promise.all([
+      get().loadExpenses(tripId),
+      invalidateByPrefix('home'),
+    ])
     return { error: null }
   },
 
@@ -118,6 +122,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       set({ expenses: prev }) // rollback
       return { error: error.message }
     }
+    invalidateByPrefix('home')
     return { error: null }
   },
 
@@ -144,7 +149,10 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
     if (error) return { error: error.message }
 
-    await get().loadExpenses(tripId)
+    await Promise.all([
+      get().loadExpenses(tripId),
+      invalidateByPrefix('home'),
+    ])
     return { error: null }
   },
 
