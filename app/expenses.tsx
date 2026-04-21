@@ -493,7 +493,7 @@ export default function ExpensesScreen() {
                   <HStack justifyContent="space-between">
                     <Text variant="bodySmall" color="textSecondary" weight="600">Progresso</Text>
                     <Text variant="bodySmall" weight="700" style={{ color: theme.colors.brand }}>
-                      {Math.round(budgetPct)}% Utilizado
+                      TOTAL PLANEJADO: R$ {formatBRL(budgetAmount)}
                     </Text>
                   </HStack>
                   <View style={styles.budgetTrack}>
@@ -502,10 +502,10 @@ export default function ExpensesScreen() {
                   <HStack justifyContent="space-between" alignItems="flex-end">
                     <VStack gap={0.5}>
                       <Text variant="overline" color="textTertiary" weight="700" style={{ fontSize: 9, letterSpacing: 0.5 }}>
-                        GASTO TOTAL
+                        % UTILIZADO
                       </Text>
                       <Text variant="subtitle" weight="800" style={{ color: theme.colors.brand }}>
-                        R$ {formatBRL(budgetAmount)}
+                        {Math.round(budgetPct)}%
                       </Text>
                     </VStack>
                     <VStack gap={0.5} alignItems="flex-end">
