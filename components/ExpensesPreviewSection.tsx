@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 import Icon from './Icon'
 import { Colors } from '../constants/Colors'
 import { formatBRL } from '../lib/currency'
+import { t } from '../lib/i18n'
 import { EXPENSE_CATEGORY_CONF } from '../constants/categories'
 import type { Expense } from '../types'
 
@@ -29,7 +30,7 @@ export default memo(function ExpensesPreviewSection({ tripId, tripTitle, expense
         accessibilityRole="button"
       >
         <Icon name="account-balance-wallet" size={28} color={C.tertiary} />
-        <Text style={styles.emptyText}>Nenhum gasto registrado</Text>
+        <Text style={styles.emptyText}>{t('no_expenses')}</Text>
         <Text style={styles.emptySubtext}>Toque para registrar seus gastos</Text>
       </TouchableOpacity>
     )
@@ -68,7 +69,7 @@ export default memo(function ExpensesPreviewSection({ tripId, tripTitle, expense
           return (
             <View key={cat} style={styles.catRow}>
               <View style={styles.catLeft}>
-                <Icon name={conf.icon as string} size={12} color={conf.color} />
+                <Icon name={conf.icon} size={12} color={conf.color} />
                 <Text style={styles.catLabel} numberOfLines={1}>{cat}</Text>
               </View>
               <View style={styles.catBarTrack}>
@@ -87,7 +88,7 @@ export default memo(function ExpensesPreviewSection({ tripId, tripTitle, expense
         return (
           <View key={e.id} style={[styles.recentRow, idx < recent.length - 1 && styles.recentRowBorder]}>
             <View style={[styles.recentIcon, { backgroundColor: conf.color + '18' }]}>
-              <Icon name={conf.icon as string} size={14} color={conf.color} />
+              <Icon name={conf.icon} size={14} color={conf.color} />
             </View>
             <View style={styles.recentMid}>
               <Text style={styles.recentCat}>{e.category}</Text>

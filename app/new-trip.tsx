@@ -45,7 +45,7 @@ export default function NewTripScreen() {
       return
     }
     if (startDateISO && endDateISO && endDateISO < startDateISO) {
-      showAlert(t('attention_title'), 'A data de volta deve ser igual ou posterior à data de ida.')
+      showAlert(t('attention_title'), t('end_before_start'))
       return
     }
     setLoading(true)

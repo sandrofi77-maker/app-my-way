@@ -1,5 +1,5 @@
 import { ScrollView, ActivityIndicator, View } from 'react-native'
-import Icon from '../components/Icon'
+import Icon, { type IconName } from '../components/Icon'
 import { router } from 'expo-router'
 import DesktopLayout from '../components/DesktopLayout'
 import { formatBRL } from '../lib/currency'
@@ -43,14 +43,14 @@ export default function StatsScreen() {
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
             {/* Summary cards */}
             <HStack gap={2.5} mb={4}>
-              {[
+              {([
                 { icon: 'flight', color: theme.colors.text, value: totalTrips, label: 'Viagens' },
                 { icon: 'check-circle', color: theme.colors.success, value: completedTrips, label: 'Concluidas' },
                 { icon: 'place', color: '#5856D6', value: uniqueDestinations, label: 'Destinos' },
-              ].map(s => (
+              ] as { icon: IconName; color: string; value: number; label: string }[]).map(s => (
                 <Card key={s.label} variant="outlined" style={{ flex: 1 }}>
                   <VStack gap={1.5} p={4} alignItems="center">
-                    <Icon name={s.icon as any} size={22} color={s.color} />
+                    <Icon name={s.icon} size={22} color={s.color} />
                     <Text variant="h3" weight="800">{s.value}</Text>
                     <Text variant="caption" color="textSecondary" weight="600">{s.label}</Text>
                   </VStack>
@@ -85,7 +85,7 @@ export default function StatsScreen() {
                     return (
                       <HStack key={cat} gap={2.5} alignItems="center">
                         <HStack gap={2} alignItems="center" style={{ width: 120 }}>
-                          <Icon name={conf.icon as any} size={18} color={conf.color} />
+                          <Icon name={conf.icon} size={18} color={conf.color} />
                           <Text variant="bodySmall" color="textSecondary" numberOfLines={1} style={{ flex: 1 }}>{cat}</Text>
                         </HStack>
                         <View style={{ flex: 1, height: 8, backgroundColor: theme.colors.surfaceHigh, borderRadius: 5, overflow: 'hidden' }}>

@@ -50,7 +50,7 @@ export default memo(function ItineraryPreviewSection({ tripId, tripTitle, startD
               <View style={styles.previewInner}>
                 <View style={styles.previewTopRow}>
                   <View style={[styles.previewIcon, { backgroundColor: conf.color + '18' }]}>
-                    <Icon name={conf.icon as string} size={13} color={conf.color} />
+                    <Icon name={conf.icon} size={13} color={conf.color} />
                   </View>
                   <Text style={[styles.previewCat, { color: conf.color }]}>{item.category || 'Livre'}</Text>
                 </View>

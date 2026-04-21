@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import Icon from './Icon'
 import HScrollable from './HScrollable'
 import { Colors } from '../constants/Colors'
-import { getDeviceLocale } from '../lib/i18n'
+import { getDeviceLocale, t } from '../lib/i18n'
 import type { Flight } from '../types'
 
 const C = Colors.dark
@@ -41,7 +41,7 @@ export default memo(function FlightSection({ flights, cardWidth, isDesktop, acti
       {flights.length === 0 ? (
         <View style={styles.emptyCard}>
           <Icon name="flight" size={32} color={C.tertiary} />
-          <Text style={styles.emptyText}>Nenhum voo cadastrado</Text>
+          <Text style={styles.emptyText}>{t('no_flights')}</Text>
         </View>
       ) : (
         <HScrollable

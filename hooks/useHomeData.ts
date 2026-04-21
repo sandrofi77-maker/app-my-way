@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { offlineQuery } from '../lib/offlineQuery'
+import { t } from '../lib/i18n'
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -108,11 +109,11 @@ export function formatTripDate(date: string | null) {
 }
 
 export function getBadgeText(item: TripWithMeta) {
-  if (item.isCompleted) return 'Concluida'
-  if (item.daysRemaining === null) return 'Sem data'
-  if (item.daysRemaining === 0) return 'Hoje'
-  if (item.daysRemaining === 1) return 'Falta 1 dia'
-  return `Faltam ${item.daysRemaining} dias`
+  if (item.isCompleted) return t('completed_badge')
+  if (item.daysRemaining === null) return t('no_date_badge')
+  if (item.daysRemaining === 0) return t('today_badge')
+  if (item.daysRemaining === 1) return t('days_remaining_one')
+  return t('days_remaining_other').replace('{count}', String(item.daysRemaining))
 }
 
 export function getBadgeTone(item: TripWithMeta): 'success' | 'neutral' | 'brand' {
@@ -216,7 +217,7 @@ export function useHomeData() {
 
       if (cachedTrips) setTrips(cachedTrips)
     } catch {
-      setError('Erro ao carregar viagens.')
+      setError(t('trips_load_error'))
     } finally {
       setLoading(false)
     }

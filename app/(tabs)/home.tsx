@@ -9,6 +9,7 @@ import { router } from 'expo-router'
 import DesktopLayout from '../../components/DesktopLayout'
 import { useResponsive } from '../../hooks/useResponsive'
 import { formatBRL } from '../../lib/currency'
+import { t } from '../../lib/i18n'
 import NewTripSheet from '../../components/NewTripSheet'
 import {
   useHomeData, sortOpenTrips, sortCompletedTrips,
@@ -180,7 +181,7 @@ export default function HomeScreen() {
         {daysBetween !== null && (
           <Box alignItems="center" mb={4} mt={0} style={{ marginTop: -4 }}>
             <Text variant="caption" color="textTertiary" style={{ backgroundColor: theme.colors.background, paddingHorizontal: 12 }}>
-              {daysBetween} {daysBetween === 1 ? 'dia' : 'dias'} entre viagens
+              {t('days_between_trips').replace('{count}', String(daysBetween)).replace(/\{count, =1\{(.+?)\} other\{(.+?)\}\}/, daysBetween === 1 ? '$1' : '$2')}
             </Text>
           </Box>
         )}
@@ -252,7 +253,7 @@ export default function HomeScreen() {
               variant="caption" weight="600"
               color={activeTab === tab ? 'text' : 'textTertiary'}
             >
-              {tab === 'open' ? 'Viagens planejadas' : 'Viagens concluidas'}
+              {tab === 'open' ? t('planned_trips_tab') : t('completed_trips_tab')}
             </Text>
           </Pressable>
         ))}
@@ -266,8 +267,8 @@ export default function HomeScreen() {
     <Box mt={20}>
       <EmptyState
         icon={<Icon name="flight" size={48} color={theme.colors.textTertiary} />}
-        title={activeTab === 'open' ? 'Nenhuma viagem em aberto' : 'Nenhuma viagem concluida'}
-        description={activeTab === 'open' ? 'Crie sua primeira viagem!' : 'Finalize uma viagem para ver aqui.'}
+        title={activeTab === 'open' ? t('no_open_trips') : t('no_completed_trips')}
+        description={activeTab === 'open' ? t('create_first_trip') : t('finish_trip_hint')}
       />
     </Box>
   ) : null

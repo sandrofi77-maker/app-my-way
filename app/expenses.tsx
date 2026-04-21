@@ -513,35 +513,6 @@ export default function ExpensesScreen() {
             </VStack>
           </Card>
 
-          {false && <Card variant="outlined" style={{ marginHorizontal: 20, marginTop: 12 }}>
-            <VStack p={4} gap={2}>
-              <Text variant="overline" color="textTertiary">Acerto de contas</Text>
-              {settlement.length === 0 ? (
-                <Text variant="bodySmall" color="textSecondary">
-                  Nenhuma divisao registrada ainda.
-                </Text>
-              ) : (
-                settlement.map((item) => (
-                  <HStack key={item.key} justifyContent="space-between" alignItems="center">
-                    <VStack>
-                      <Text variant="bodySmall" weight="700">{item.label}</Text>
-                      <Text variant="caption" color="textSecondary">
-                        Pagou R$ {formatBRL(item.paid)} • Deve R$ {formatBRL(item.owed)}
-                      </Text>
-                    </VStack>
-                    <Text
-                      variant="bodySmall"
-                      weight="700"
-                      style={{ color: item.balance >= 0 ? theme.colors.success : theme.colors.error }}
-                    >
-                      {item.balance >= 0 ? 'Recebe ' : 'Deve '}R$ {formatBRL(Math.abs(item.balance))}
-                    </Text>
-                  </HStack>
-                ))
-              )}
-            </VStack>
-          </Card>}
-
           {categoryTotals.length > 0 && (
             <VStack gap={4} mx={5} mt={4} mb={1}>
               {categoryTotals.map(([cat, amt]) => {
@@ -550,7 +521,7 @@ export default function ExpensesScreen() {
                 return (
                   <HStack key={cat} gap={3} alignItems="center">
                     <HStack gap={2} alignItems="center" style={{ width: 120 }}>
-                      <Icon name={conf.icon as never} size={20} color={conf.color} />
+                      <Icon name={conf.icon} size={20} color={conf.color} />
                       <Text variant="body" color="textSecondary" numberOfLines={1} style={{ flex: 1 }}>{cat}</Text>
                     </HStack>
                     <View style={{ flex: 1, height: 10, backgroundColor: theme.colors.surfaceHigh, borderRadius: 6, overflow: 'hidden' }}>
@@ -566,7 +537,7 @@ export default function ExpensesScreen() {
           </>}
           ListEmptyComponent={
             <Box mt={12}>
-              <EmptyState title="Nenhum gasto registrado ainda" />
+              <EmptyState title={t('no_expenses')} />
             </Box>
           }
           renderItem={({ item }) => {
@@ -581,7 +552,7 @@ export default function ExpensesScreen() {
                     <Card variant="outlined">
                       <HStack p={3.5} gap={3} alignItems="center">
                         <Box width={40} height={40} borderRadius="lg" alignItems="center" justifyContent="center" bg={conf.color + '18'}>
-                          <Icon name={conf.icon as never} size={18} color={conf.color} />
+                          <Icon name={conf.icon} size={18} color={conf.color} />
                         </Box>
                         <VStack flex={1}>
                           <Text variant="bodySmall" weight="700" style={{ color: conf.color }}>{item.category}</Text>
@@ -659,7 +630,7 @@ export default function ExpensesScreen() {
                       backgroundColor: active ? conf.color + '14' : theme.colors.surfaceHigh,
                     }}
                   >
-                    <Icon name={conf.icon as never} size={14} color={active ? conf.color : theme.colors.textSecondary} />
+                    <Icon name={conf.icon} size={14} color={active ? conf.color : theme.colors.textSecondary} />
                     <Text variant="bodySmall" weight={active ? '700' : '600'} style={{ color: active ? conf.color : theme.colors.textSecondary }}>
                       {cat}
                     </Text>

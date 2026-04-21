@@ -2,6 +2,8 @@
 // Fonte única de verdade para ícones, cores e labels de categorias
 // usadas em expenses, itinerary, checklist e stats.
 
+import type { IconName } from '../components/Icon'
+
 // ── Expense categories ──
 
 export const EXPENSE_CATEGORIES = [
@@ -11,7 +13,7 @@ export const EXPENSE_CATEGORIES = [
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
 
-export const EXPENSE_CATEGORY_CONF: Record<string, { icon: string; color: string }> = {
+export const EXPENSE_CATEGORY_CONF: Record<string, { icon: IconName; color: string }> = {
   'Hospedagem':  { icon: 'hotel',             color: '#5856D6' },
   'Alimentação': { icon: 'restaurant',        color: '#FF9500' },
   'Alimentacao': { icon: 'restaurant',        color: '#FF9500' },
@@ -42,7 +44,7 @@ export const ITINERARY_CATEGORIES = [
 
 export type ItineraryCategory = (typeof ITINERARY_CATEGORIES)[number]['value']
 
-export const ITINERARY_CATEGORY_CONF: Record<string, { icon: string; color: string }> = Object.fromEntries(
+export const ITINERARY_CATEGORY_CONF: Record<string, { icon: IconName; color: string }> = Object.fromEntries(
   ITINERARY_CATEGORIES.map(c => [c.value, { icon: c.icon, color: c.color }])
 )
 
@@ -52,13 +54,13 @@ export function getItineraryCategoryConf(value?: string | null) {
 
 // ── Checklist categories ──
 
-export const CHECKLIST_CATEGORIES = [
+export const CHECKLIST_CATEGORIES: ReadonlyArray<{ key: string; label: string; icon: IconName; color: string }> = [
   { key: 'documentos',  label: 'Documentos',   icon: 'badge',            color: '#5856D6' },
   { key: 'roupas',      label: 'Roupas',        icon: 'checkroom',        color: '#FF9500' },
   { key: 'eletronicos', label: 'Eletronicos',   icon: 'devices',          color: '#32ADE6' },
   { key: 'saude',       label: 'Saude',         icon: 'medical-services', color: '#FF2D55' },
   { key: 'outros',      label: 'Outros',        icon: 'checklist',        color: '#8E8E93' },
-] as const
+]
 
 export const CHECKLIST_TEMPLATES: Record<string, string[]> = {
   documentos:  ['Passaporte', 'Visto', 'Seguro viagem', 'Passagem impressa', 'Reservas de hotel'],

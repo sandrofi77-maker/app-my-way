@@ -131,7 +131,7 @@ export default function ChecklistScreen() {
                   <HStack gap={2} px={4} py={3} alignItems="center"
                     style={{ borderBottomWidth: 0.5, borderBottomColor: theme.colors.border }}
                   >
-                    <Icon name={group.icon as any} size={16} color={group.color} />
+                    <Icon name={group.icon} size={16} color={group.color} />
                     <Text variant="caption" weight="700" style={{ color: group.color, flex: 1 }}>{group.label}</Text>
                     <Text variant="caption" color="textTertiary">
                       {group.items.filter(i => i.is_done).length}/{group.items.length}
@@ -214,7 +214,7 @@ export default function ChecklistScreen() {
                     backgroundColor: newCategory === cat.key ? cat.color + '14' : theme.colors.surfaceHigh,
                   }}
                 >
-                  <Icon name={cat.icon as any} size={14} color={newCategory === cat.key ? cat.color : theme.colors.textSecondary} />
+                  <Icon name={cat.icon} size={14} color={newCategory === cat.key ? cat.color : theme.colors.textSecondary} />
                   <Text variant="bodySmall" weight={newCategory === cat.key ? '700' : '600'}
                     style={{ color: newCategory === cat.key ? cat.color : theme.colors.textSecondary }}
                   >
@@ -245,7 +245,7 @@ export default function ChecklistScreen() {
                     alignItems="center" justifyContent="center"
                     bg={cat.color + '18'}
                   >
-                    <Icon name={cat.icon as any} size={20} color={cat.color} />
+                    <Icon name={cat.icon} size={20} color={cat.color} />
                   </Box>
                   <VStack flex={1}>
                     <Text variant="body" weight="600">{cat.label}</Text>
