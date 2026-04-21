@@ -5,7 +5,7 @@ import {
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Colors } from '../constants/Colors'
-import Icon from './Icon'
+import Icon, { type IconName } from './Icon'
 import SheetModal from './SheetModal'
 import { showAlert } from '../lib/alert'
 
@@ -34,7 +34,7 @@ type Props = {
 }
 
 // ── Config de permissões ──────────────────────────────────────────
-const ROLES: { value: Role; label: string; desc: string; icon: string; color: string }[] = [
+const ROLES: { value: Role; label: string; desc: string; icon: IconName; color: string }[] = [
   {
     value: 'admin',
     label: 'Administrador',
@@ -239,7 +239,7 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
                 onPress={() => setInviteRole(r.value)}
                 activeOpacity={0.8}
               >
-                <Icon name={r.icon as any} size={15} color={inviteRole === r.value ? r.color : C.tertiary} />
+                <Icon name={r.icon} size={15} color={inviteRole === r.value ? r.color : C.tertiary} />
                 <Text style={[styles.roleChipText, inviteRole === r.value && { color: r.color, fontWeight: '700' }]}>
                   {r.label}
                 </Text>
@@ -332,7 +332,7 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
                     activeOpacity={canManage ? 0.7 : 1}
                     disabled={!canManage}
                   >
-                    <Icon name={roleInfo.icon as any} size={13} color={roleInfo.color} />
+                    <Icon name={roleInfo.icon} size={13} color={roleInfo.color} />
                     <Text style={[styles.roleBadgeText, { color: roleInfo.color }]}>{roleInfo.label}</Text>
                     {canManage && <Icon name="expand-more" size={14} color={roleInfo.color} />}
                   </TouchableOpacity>
@@ -356,7 +356,7 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
                         onPress={() => handleChangeRole(member.id, r.value)}
                         activeOpacity={0.8}
                       >
-                        <Icon name={r.icon as any} size={18} color={r.color} />
+                        <Icon name={r.icon} size={18} color={r.color} />
                         <View style={{ flex: 1 }}>
                           <Text style={styles.rolePopoverItemLabel}>{r.label}</Text>
                           <Text style={styles.rolePopoverItemDesc}>{r.desc}</Text>
@@ -388,7 +388,7 @@ export default function TripShareSheet({ visible, onClose, tripId, tripTitle, ow
         <Text style={styles.permissionsInfoTitle}>Sobre as permissões</Text>
         {ROLES.map(r => (
           <View key={r.value} style={styles.permInfoRow}>
-            <Icon name={r.icon as any} size={15} color={r.color} />
+            <Icon name={r.icon} size={15} color={r.color} />
             <Text style={styles.permInfoLabel}>{r.label}:</Text>
             <Text style={styles.permInfoDesc}>{r.desc}</Text>
           </View>

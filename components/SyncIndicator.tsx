@@ -3,6 +3,7 @@ import { Animated, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from './Icon'
 import { useNetworkStore } from '../lib/network'
+import { t } from '../lib/i18n'
 import { useTheme, Text, HStack } from '../design-system'
 
 export default function SyncIndicator() {
@@ -31,10 +32,10 @@ export default function SyncIndicator() {
   if (!visible) return null
 
   const label = lastSyncFailure
-    ? 'Falha ao sincronizar. Dados podem ter sido perdidos.'
+    ? t('sync_failure')
     : !isOnline
-    ? 'Você está offline'
-    : `Sincronizando (${pendingCount})...`
+    ? t('offline_label')
+    : t('syncing_label').replace('{count}', String(pendingCount))
 
   const iconName = lastSyncFailure ? 'error-outline' : !isOnline ? 'cloud-off' : 'sync'
   const bgColor = lastSyncFailure ? theme.colors.error : !isOnline ? theme.colors.warning : theme.colors.brand

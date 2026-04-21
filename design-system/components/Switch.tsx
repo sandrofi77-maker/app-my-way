@@ -37,7 +37,7 @@ export function Switch({ value, onValueChange, disabled, accessibilityLabel }: S
     outputRange: [padding, trackWidth - thumbSize - padding],
   })
 
-  const trackStyle: any = {
+  const trackStyle: Animated.AnimatedProps<ViewStyle> = {
     width: trackWidth,
     height: trackHeight,
     borderRadius: trackHeight / 2,

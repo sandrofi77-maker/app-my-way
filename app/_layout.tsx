@@ -8,6 +8,7 @@ import {
   Roboto_700Bold,
   Roboto_800ExtraBold,
 } from '@expo-google-fonts/roboto'
+import { MaterialIcons } from '@expo/vector-icons'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect } from 'react'
 import { ThemeProvider, useTheme, ToastProvider, Box, Text } from '../design-system'
@@ -78,6 +79,7 @@ export default function RootLayout() {
     Roboto_600SemiBold,
     Roboto_700Bold,
     Roboto_800ExtraBold,
+    ...MaterialIcons.font,
   })
 
   useEffect(() => {

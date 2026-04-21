@@ -126,7 +126,7 @@ export default function StatsSheet({ visible, onClose }: Props) {
                 return (
                   <View key={cat} style={styles.catRow}>
                     <View style={styles.catLeft}>
-                      <Icon name={conf.icon as any} size={18} color={conf.color} />
+                      <Icon name={conf.icon} size={18} color={conf.color} />
                       <Text style={styles.catLabel}>{cat}</Text>
                     </View>
                     <View style={styles.catTrack}>

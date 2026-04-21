@@ -1,4 +1,4 @@
-import { createClient, type SupportedStorage } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient, type SupportedStorage } from '@supabase/supabase-js'
 import { Platform } from 'react-native'
 import 'react-native-url-polyfill/auto'
 
@@ -23,7 +23,7 @@ const missingConfigClient = new Proxy(
   }
 )
 
-export const supabase = isSupabaseConfigured
+export const supabase: SupabaseClient = isSupabaseConfigured
   ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
       auth: {
         storage,
@@ -32,4 +32,4 @@ export const supabase = isSupabaseConfigured
         detectSessionInUrl: Platform.OS === 'web',
       },
     })
-  : (missingConfigClient as any)
+  : (missingConfigClient as unknown as SupabaseClient)

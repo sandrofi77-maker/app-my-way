@@ -30,7 +30,7 @@ export async function uploadImage(localUri: string, folder: string): Promise<str
   } else {
     // Nativo: usar FileSystem para ler como base64 e converter
     const base64 = await FileSystem.readAsStringAsync(localUri, {
-      encoding: 'base64' as any,
+      encoding: FileSystem.EncodingType.Base64,
     })
     body = decode(base64)
   }

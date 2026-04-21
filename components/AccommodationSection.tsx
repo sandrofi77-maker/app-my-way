@@ -4,7 +4,7 @@ import Icon from './Icon'
 import CachedImage from './CachedImage'
 import HScrollable from './HScrollable'
 import { Colors } from '../constants/Colors'
-import { getDeviceLocale } from '../lib/i18n'
+import { getDeviceLocale, t } from '../lib/i18n'
 import type { Accommodation } from '../types'
 
 const C = Colors.dark
@@ -17,9 +17,9 @@ function getDaysUntil(dateStr?: string | null): string | null {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const diff = Math.round((target.getTime() - today.getTime()) / 86400000)
   if (diff < 0) return null
-  if (diff === 0) return 'Hoje'
-  if (diff === 1) return 'Falta 1 dia'
-  return `Faltam ${diff} dias`
+  if (diff === 0) return t('today_badge')
+  if (diff === 1) return t('days_remaining_one')
+  return t('days_remaining_other').replace('{count}', String(diff))
 }
 
 function formatDateRange(checkIn?: string | null, checkOut?: string | null): string {
@@ -62,7 +62,7 @@ export default memo(function AccommodationSection({ accommodations, cardWidth, i
       {accommodations.length === 0 ? (
         <View style={styles.emptyCard}>
           <Icon name="hotel" size={32} color={C.tertiary} />
-          <Text style={styles.emptyText}>Nenhuma hospedagem cadastrada</Text>
+          <Text style={styles.emptyText}>{t('no_accommodations')}</Text>
         </View>
       ) : (
         <HScrollable

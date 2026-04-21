@@ -26,7 +26,7 @@ export function Pressable({
       {...rest}
       disabled={disabled}
       accessibilityRole={rest.accessibilityRole ?? 'button'}
-      style={(state: any) => {
+      style={(state: { pressed: boolean; hovered?: boolean }) => {
         const base = typeof style === 'function' ? style(state) : style
         const hovered = state.hovered && hoveredStyle
         const pressed = state.pressed && pressedStyle
@@ -34,7 +34,7 @@ export function Pressable({
         return [base, hovered, pressed, disabledS].filter(Boolean) as ViewStyle[]
       }}
     >
-      {children as any}
+      {children as React.ReactNode}
     </RNPressable>
   )
 }
