@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
 import { Colors } from '../constants/Colors'
 import { useItineraryStore } from '../stores/useItineraryStore'
+import { useShallow } from 'zustand/react/shallow'
 import { t, getDeviceLocale } from '../lib/i18n'
 import {
   applyDateMask, applyTimeMask,
@@ -84,7 +85,12 @@ export default function ItineraryScreen() {
 
   const [selectedDate, setSelectedDate] = useState<string | null>(days[0] || null)
   // ── Store ──
-  const { items, loading, loadItems, saveItem, deleteItem } = useItineraryStore()
+  const { items, loading, loadItems, saveItem, deleteItem } = useItineraryStore(
+    useShallow((s) => ({
+      items: s.items, loading: s.loading,
+      loadItems: s.loadItems, saveItem: s.saveItem, deleteItem: s.deleteItem,
+    }))
+  )
 
   const [modalVisible, setModalVisible] = useState(false)
   const [saving, setSaving]             = useState(false)

@@ -1,4 +1,4 @@
-import { View, ScrollView, StyleSheet } from 'react-native'
+import { View, FlatList, StyleSheet } from 'react-native'
 import Icon from '../components/Icon'
 import { useState, useCallback, useMemo } from 'react'
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router'
@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { t, getDeviceLocale } from '../lib/i18n'
 import { showAlert } from '../lib/alert'
 import { useExpenseStore } from '../stores/useExpenseStore'
+import { useShallow } from 'zustand/react/shallow'
 import SheetModal from '../components/SheetModal'
 import ReceiptPicker from '../components/ReceiptPicker'
 import DesktopLayout from '../components/DesktopLayout'
@@ -109,7 +110,13 @@ export default function ExpensesScreen() {
   const { id: tripId, title: tripTitle, openNew } = useLocalSearchParams()
   const tid = String(tripId || '')
 
-  const { expenses, budget, budgetCurrency, loadAll, saveExpense, saveExpenseWithSplit, deleteExpense } = useExpenseStore()
+  const { expenses, budget, budgetCurrency, loadAll, saveExpense, saveExpenseWithSplit, deleteExpense } = useExpenseStore(
+    useShallow((s) => ({
+      expenses: s.expenses, budget: s.budget, budgetCurrency: s.budgetCurrency,
+      loadAll: s.loadAll, saveExpense: s.saveExpense,
+      saveExpenseWithSplit: s.saveExpenseWithSplit, deleteExpense: s.deleteExpense,
+    }))
+  )
 
   const [modalVisible, setModalVisible] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
@@ -445,7 +452,15 @@ export default function ExpensesScreen() {
           </HStack>
         </Box>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <FlatList
+          data={expenses}
+          keyExtractor={useCallback((item: Expense) => item.id, [])}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          ListHeaderComponent={<>
           {(budgetAmount != null || paymentsSummary.length > 0) && (
             <Card variant="outlined" style={{ marginHorizontal: 20, marginTop: 16 }}>
               <VStack p={4} gap={2.5}>
@@ -548,20 +563,21 @@ export default function ExpensesScreen() {
             </VStack>
           )}
 
-          {expenses.length === 0 ? (
+          </>}
+          ListEmptyComponent={
             <Box mt={12}>
               <EmptyState title="Nenhum gasto registrado ainda" />
             </Box>
-          ) : (
-            <VStack gap={2} px={5} pt={2}>
-              {expenses.map((item) => {
+          }
+          renderItem={({ item }) => {
                 const conf = EXPENSE_CATEGORY_CONF[item.category] ?? EXPENSE_CATEGORY_CONF['Outros']
                 const itemSplits = expenseSplits.filter((split) => split.expense_id === item.id)
                 const payerLabel = item.paid_by_user_id
                   ? (item.paid_by_user_id === currentUserId ? 'Voce' : getMemberLabel(item.paid_by_user_id, null))
                   : 'nao informado'
                 return (
-                  <Pressable key={item.id} onPress={() => openEditExpense(item)} accessibilityLabel={`${item.category}, ${item.currency} ${formatBRL(item.amount)}`} accessibilityRole="button">
+                  <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+                  <Pressable onPress={() => openEditExpense(item)} accessibilityLabel={`${item.category}, ${item.currency} ${formatBRL(item.amount)}`} accessibilityRole="button">
                     <Card variant="outlined">
                       <HStack p={3.5} gap={3} alignItems="center">
                         <Box width={40} height={40} borderRadius="lg" alignItems="center" justifyContent="center" bg={conf.color + '18'}>
@@ -592,11 +608,10 @@ export default function ExpensesScreen() {
                       </HStack>
                     </Card>
                   </Pressable>
+                  </View>
                 )
-              })}
-            </VStack>
-          )}
-        </ScrollView>
+          }}
+        />
 
         <FAB accessibilityLabel="Novo gasto" onPress={openNewExpense}>
           <Icon name="add" size={28} color="#fff" />

@@ -76,6 +76,11 @@ export default function AccommodationFormModal({ visible, tripId, editingAccommo
     if (checkIn.trim() && !ci) { showAlert(t('attention_title'), t('invalid_checkin_time')); return }
     if (checkOut.trim() && !co) { showAlert(t('attention_title'), t('invalid_checkout_time')); return }
 
+    if (ciDate && coDate && coDate < ciDate) {
+      showAlert(t('attention_title'), t('checkout_before_checkin'))
+      return
+    }
+
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -151,7 +156,7 @@ export default function AccommodationFormModal({ visible, tripId, editingAccommo
       <Text style={styles.label}>Nome *</Text>
       <View style={styles.inputRow}>
         <Icon name="hotel" size={20} color={C.secondary} />
-        <TextInput style={styles.input} placeholder="Ex: Hotel Central" placeholderTextColor={C.tertiary} value={name} onChangeText={setName} accessibilityLabel="Nome da hospedagem" />
+        <TextInput style={styles.input} placeholder="Ex: Hotel Central" placeholderTextColor={C.tertiary} value={name} onChangeText={setName} accessibilityLabel="Nome da hospedagem" autoFocus={!editingAccommodation} />
       </View>
 
       <Text style={styles.label}>Local *</Text>

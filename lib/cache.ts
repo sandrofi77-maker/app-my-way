@@ -68,6 +68,20 @@ export async function removeCache(key: string): Promise<void> {
 }
 
 /**
+ * Invalida todas as entradas cujo key comeca com o prefixo informado.
+ * Ex: invalidateByPrefix('home') remove 'home:trips', 'home:stats', etc.
+ */
+export async function invalidateByPrefix(prefix: string): Promise<void> {
+  try {
+    const keys = await AsyncStorage.getAllKeys()
+    const matching = keys.filter(k => k.startsWith(CACHE_PREFIX + prefix))
+    if (matching.length) await AsyncStorage.multiRemove(matching)
+  } catch (err) {
+    console.warn('[Cache] invalidateByPrefix failed:', prefix, err)
+  }
+}
+
+/**
  * Invalida todo o cache do app (prefixado com @myway_cache:).
  */
 export async function clearAllCache(): Promise<void> {

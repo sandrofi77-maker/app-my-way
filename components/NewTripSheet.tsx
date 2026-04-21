@@ -18,8 +18,8 @@ const CURRENCIES = ['R$', 'USD', 'EUR', 'GBP']
 type Props = {
   visible: boolean
   onClose: () => void
-  /** Chamado após criação bem-sucedida */
-  onCreated?: () => void
+  /** Chamado após criação bem-sucedida com o ID da viagem criada */
+  onCreated?: (tripId: string) => void
 }
 
 export default function NewTripSheet({ visible, onClose, onCreated }: Props) {
@@ -73,7 +73,7 @@ export default function NewTripSheet({ visible, onClose, onCreated }: Props) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error(t('session_expired'))
 
-      const { error } = await supabase.from('trips').insert({
+      const { data: inserted, error } = await supabase.from('trips').insert({
         title: title.trim(),
         destination: destination.trim(),
         start_date: startDateISO,
@@ -83,11 +83,11 @@ export default function NewTripSheet({ visible, onClose, onCreated }: Props) {
         status: 'planning',
         budget: budget.trim() ? parseCurrencyInput(budget) : null,
         budget_currency: budgetCurrency,
-      })
+      }).select('id').single()
 
       if (error) throw error
       resetForm()
-      onCreated?.()
+      onCreated?.(inserted.id)
     } catch (err: unknown) {
       showAlert(t('error_title'), err instanceof Error ? err.message : t('generic_error'))
     } finally {

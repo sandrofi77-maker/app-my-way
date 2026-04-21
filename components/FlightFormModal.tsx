@@ -85,6 +85,11 @@ export default function FlightFormModal({ visible, tripId, editingFlight, onClos
       return
     }
 
+    if (departureISO && arrivalISO && new Date(arrivalISO) <= new Date(departureISO)) {
+      showAlert(t('attention_title'), t('arrival_before_departure'))
+      return
+    }
+
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -155,7 +160,7 @@ export default function FlightFormModal({ visible, tripId, editingFlight, onClos
       <Text style={styles.label}>Companhia *</Text>
       <View style={styles.inputRow}>
         <Icon name="flight" size={20} color={C.secondary} />
-        <TextInput style={styles.input} placeholder="Ex: LATAM" placeholderTextColor={C.tertiary} value={airline} onChangeText={setAirline} accessibilityLabel="Companhia aérea" />
+        <TextInput style={styles.input} placeholder="Ex: LATAM" placeholderTextColor={C.tertiary} value={airline} onChangeText={setAirline} accessibilityLabel="Companhia aérea" autoFocus={!editingFlight} />
       </View>
 
       <Text style={styles.label}>Numero do voo *</Text>
