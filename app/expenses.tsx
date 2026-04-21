@@ -468,7 +468,7 @@ export default function ExpensesScreen() {
                 <HStack justifyContent="space-between" alignItems="flex-start">
                   <VStack gap={1}>
                     <Text variant="overline" color="textTertiary" weight="700" style={{ fontSize: 10, letterSpacing: 1 }}>
-                      GASTO ATUAL
+                      TOTAL GASTO
                     </Text>
                     <Text variant="display" weight="800">R$ {formatBRL(total)}</Text>
                   </VStack>
