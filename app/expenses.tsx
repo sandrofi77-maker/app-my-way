@@ -493,7 +493,7 @@ export default function ExpensesScreen() {
                   <HStack justifyContent="space-between">
                     <Text variant="bodySmall" color="textSecondary" weight="600">Progresso</Text>
                     <Text variant="bodySmall" weight="700" style={{ color: theme.colors.brand }}>
-                      TOTAL PLANEJADO: R$ {formatBRL(budgetAmount)}
+                      Planejado: R$ {formatBRL(budgetAmount)}
                     </Text>
                   </HStack>
                   <View style={styles.budgetTrack}>
