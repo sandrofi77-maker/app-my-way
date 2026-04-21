@@ -461,79 +461,209 @@ export default function ExpensesScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
           ListHeaderComponent={<>
-          {(budgetAmount != null || paymentsSummary.length > 0) && (
-            <Card variant="outlined" style={{ marginHorizontal: 20, marginTop: 16 }}>
-              <VStack p={4} gap={2.5}>
-                {budgetAmount != null ? (
-                  <>
-                    <HStack justifyContent="space-between" alignItems="center">
-                      <Text variant="overline" color="textTertiary">Orcamento</Text>
-                      <Text variant="subtitle" weight="800">{budgetCur} {formatBRL(budgetAmount)}</Text>
-                    </HStack>
-                    <View style={styles.budgetTrack}>
-                      <View style={[styles.budgetBar, { width: `${budgetPct}%` as const, backgroundColor: budgetBarColor }]} />
-                    </View>
-                    <HStack justifyContent="space-between">
-                      <Text variant="caption" color="textSecondary">Gasto: {budgetCur} {formatBRL(total)}</Text>
-                      <Text variant="caption" weight="700" style={{ color: (budgetBalance ?? 0) >= 0 ? theme.colors.success : theme.colors.error }}>
-                        {(budgetBalance ?? 0) >= 0 ? 'Saldo: ' : 'Excesso: '}{budgetCur} {formatBRL(Math.abs(budgetBalance ?? 0))}
+          {/* HERO BUDGET CARD */}
+          {budgetAmount != null && (
+            <Card variant="surface" style={{ marginHorizontal: 20, marginTop: 16, marginBottom: 24 }}>
+              <VStack p={6} gap={5}>
+                <HStack justifyContent="space-between" alignItems="flex-start">
+                  <VStack gap={1}>
+                    <Text variant="overline" color="textTertiary" weight="700" style={{ fontSize: 10, letterSpacing: 1 }}>
+                      GASTO TOTAL
+                    </Text>
+                    <Text variant="display" weight="800">R$ {formatBRL(budgetAmount)}</Text>
+                  </VStack>
+                  {tripTitle ? (
+                    <Box
+                      bg="surfaceHigh"
+                      borderRadius="full"
+                      px={4}
+                      py={2}
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      <Text variant="bodySmall" weight="700" color="brand" style={{ fontSize: 10, letterSpacing: 0.5 }}>
+                        {(tripTitle as string).substring(0, 15)}
                       </Text>
-                    </HStack>
-                  </>
-                ) : null}
+                    </Box>
+                  ) : null}
+                </HStack>
 
-                {paymentsSummary.length > 0 ? (
-                  <>
-                    {budgetAmount != null ? <View style={{ height: 1, backgroundColor: theme.colors.border, marginTop: 2, marginBottom: 2 }} /> : null}
-                    <Text variant="overline" color="textTertiary">Quem pagou na viagem</Text>
-                    <VStack gap={2}>
-                      {paymentsSummary.map((item) => (
-                        <HStack key={item.key} justifyContent="space-between" alignItems="center">
-                          <HStack gap={2} alignItems="center">
-                            <View style={styles.payerBullet} />
-                            <Text variant="bodySmall" weight="600">{item.label}</Text>
-                          </HStack>
-                          <Text variant="bodySmall" weight="700">R$ {formatBRL(item.paid)}</Text>
-                        </HStack>
-                      ))}
+                {/* Progress Bar Section */}
+                <VStack gap={3}>
+                  <HStack justifyContent="space-between">
+                    <Text variant="bodySmall" color="textSecondary" weight="600">Gasto Atual</Text>
+                    <Text variant="bodySmall" weight="700" style={{ color: theme.colors.brand }}>
+                      {Math.round(budgetPct)}% Utilizado
+                    </Text>
+                  </HStack>
+                  <View style={styles.budgetTrack}>
+                    <View style={[styles.budgetBar, { width: `${budgetPct}%` as const, backgroundColor: budgetBarColor }]} />
+                  </View>
+                  <HStack justifyContent="space-between" alignItems="flex-end">
+                    <VStack gap={0.5}>
+                      <Text variant="overline" color="textTertiary" weight="700" style={{ fontSize: 9, letterSpacing: 0.5 }}>
+                        GASTO
+                      </Text>
+                      <Text variant="subtitle" weight="800" style={{ color: theme.colors.brand }}>
+                        R$ {formatBRL(total)}
+                      </Text>
                     </VStack>
-                  </>
-                ) : null}
+                    <VStack gap={0.5} alignItems="flex-end">
+                      <Text variant="overline" color="textTertiary" weight="700" style={{ fontSize: 9, letterSpacing: 0.5 }}>
+                        SALDO RESTANTE
+                      </Text>
+                      <Text variant="subtitle" weight="800">
+                        R$ {formatBRL(Math.abs(budgetBalance ?? 0))}
+                      </Text>
+                    </VStack>
+                  </HStack>
+                </VStack>
               </VStack>
             </Card>
           )}
 
-          <Card variant="outlined" style={{ marginHorizontal: 20, marginTop: 16 }}>
-            <VStack p={4}>
-              <Text variant="overline" color="textTertiary">Total gasto</Text>
-              <Text variant="display" numberOfLines={1}>R$ {formatBRL(total)}</Text>
-              <Text variant="caption" color="textTertiary" style={{ marginTop: 6 }}>
-                {expenses.length} {expenses.length === 1 ? 'lancamento' : 'lancamentos'}
+          {/* DIVISÃO DE CUSTOS SECTION */}
+          {paymentsSummary.length > 0 && (
+            <VStack gap={4} mb={6}>
+              <Text
+                variant="overline"
+                color="textTertiary"
+                weight="700"
+                px={5}
+                style={{ fontSize: 10, letterSpacing: 1 }}
+              >
+                DIVISÃO DE CUSTOS
               </Text>
-            </VStack>
-          </Card>
-
-          {categoryTotals.length > 0 && (
-            <VStack gap={4} mx={5} mt={4} mb={1}>
-              {categoryTotals.map(([cat, amt]) => {
-                const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
-                const pct = (amt / maxCat) * 100
-                return (
-                  <HStack key={cat} gap={3} alignItems="center">
-                    <HStack gap={2} alignItems="center" style={{ width: 120 }}>
-                      <Icon name={conf.icon} size={20} color={conf.color} />
-                      <Text variant="body" color="textSecondary" numberOfLines={1} style={{ flex: 1 }}>{cat}</Text>
+              <HScrollable
+                contentContainerStyle={{
+                  flexDirection: 'row',
+                  gap: 12,
+                  paddingHorizontal: 20,
+                }}
+              >
+                {paymentsSummary.map((item) => (
+                  <Card
+                    key={item.key}
+                    variant="outlined"
+                    style={{
+                      minWidth: 180,
+                      flex: 1,
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                    }}
+                  >
+                    <HStack gap={3} alignItems="center">
+                      <Box
+                        width={40}
+                        height={40}
+                        borderRadius="lg"
+                        bg={theme.colors.brand + '20'}
+                        alignItems="center"
+                        justifyContent="center"
+                        flexShrink={0}
+                      >
+                        <Icon
+                          name={item.key.includes('uid:') ? 'person' : 'email'}
+                          size={18}
+                          color={theme.colors.brand}
+                        />
+                      </Box>
+                      <VStack gap={1} flex={1}>
+                        <Text
+                          variant="overline"
+                          color="textTertiary"
+                          weight="700"
+                          numberOfLines={1}
+                          style={{ fontSize: 8, letterSpacing: 0.5 }}
+                        >
+                          {item.label.substring(0, 20)}
+                        </Text>
+                        <Text variant="subtitle" weight="800" numberOfLines={1}>
+                          R$ {formatBRL(item.paid)}
+                        </Text>
+                      </VStack>
                     </HStack>
-                    <View style={{ flex: 1, height: 10, backgroundColor: theme.colors.surfaceHigh, borderRadius: 6, overflow: 'hidden' }}>
-                      <View style={{ height: 10, borderRadius: 6, width: `${pct}%` as const, backgroundColor: conf.color }} />
-                    </View>
-                    <Text variant="bodySmall" weight="700" style={{ width: 76, textAlign: 'right' }}>R$ {formatBRL(amt)}</Text>
-                  </HStack>
-                )
-              })}
+                  </Card>
+                ))}
+              </HScrollable>
             </VStack>
           )}
 
+          {/* CATEGORIAS SECTION */}
+          {categoryTotals.length > 0 && (
+            <VStack gap={4} mb={6}>
+              <HStack justifyContent="space-between" alignItems="center" px={5}>
+                <Text
+                  variant="overline"
+                  color="textTertiary"
+                  weight="700"
+                  style={{ fontSize: 10, letterSpacing: 1 }}
+                >
+                  CATEGORIAS
+                </Text>
+                <Pressable onPress={() => {}}>
+                  <Text variant="bodySmall" weight="700" style={{ color: theme.colors.brand, fontSize: 11 }}>
+                    Ver detalhes
+                  </Text>
+                </Pressable>
+              </HStack>
+              <VStack gap={3} px={5}>
+                {categoryTotals.slice(0, 4).map(([cat, amt]) => {
+                  const conf = EXPENSE_CATEGORY_CONF[cat] ?? EXPENSE_CATEGORY_CONF['Outros']
+                  const pct = (amt / maxCat) * 100
+                  return (
+                    <VStack key={cat} gap={2.5}>
+                      <HStack justifyContent="space-between" alignItems="center">
+                        <HStack gap={2} alignItems="center" flex={1}>
+                          <Box
+                            width={32}
+                            height={32}
+                            borderRadius="lg"
+                            bg={conf.color + '20'}
+                            alignItems="center"
+                            justifyContent="center"
+                            flexShrink={0}
+                          >
+                            <Icon name={conf.icon} size={16} color={conf.color} />
+                          </Box>
+                          <Text variant="body" weight="600" numberOfLines={1}>
+                            {cat}
+                          </Text>
+                        </HStack>
+                        <Text variant="bodySmall" weight="800">
+                          R$ {formatBRL(amt)}
+                        </Text>
+                      </HStack>
+                      <View style={{ height: 6, backgroundColor: theme.colors.surfaceHigh, borderRadius: 3, overflow: 'hidden' }}>
+                        <View
+                          style={{
+                            height: 6,
+                            borderRadius: 3,
+                            width: `${pct}%` as const,
+                            backgroundColor: conf.color,
+                          }}
+                        />
+                      </View>
+                    </VStack>
+                  )
+                })}
+              </VStack>
+            </VStack>
+          )}
+
+          {/* TRANSAÇÕES RECENTES HEADER */}
+          {expenses.length > 0 && (
+            <Text
+              variant="overline"
+              color="textTertiary"
+              weight="700"
+              px={5}
+              mb={4}
+              style={{ fontSize: 10, letterSpacing: 1 }}
+            >
+              TRANSAÇÕES RECENTES
+            </Text>
+          )}
           </>}
           ListEmptyComponent={
             <Box mt={12}>
@@ -548,37 +678,59 @@ export default function ExpensesScreen() {
                   : 'nao informado'
                 return (
                   <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-                  <Pressable onPress={() => openEditExpense(item)} accessibilityLabel={`${item.category}, ${item.currency} ${formatBRL(item.amount)}`} accessibilityRole="button">
-                    <Card variant="outlined">
-                      <HStack p={3.5} gap={3} alignItems="center">
-                        <Box width={40} height={40} borderRadius="lg" alignItems="center" justifyContent="center" bg={conf.color + '18'}>
-                          <Icon name={conf.icon} size={18} color={conf.color} />
-                        </Box>
-                        <VStack flex={1}>
-                          <Text variant="bodySmall" weight="700" style={{ color: conf.color }}>{item.category}</Text>
-                          {item.description ? <Text variant="caption" color="textSecondary" numberOfLines={1}>{item.description}</Text> : null}
-                          <Text variant="caption" color="textTertiary">{formatExpenseDate(item.date)}</Text>
-                          <Text variant="caption" color="textSecondary">Pago por {payerLabel}</Text>
-                          {itemSplits.length > 0 ? (
-                            <Text variant="caption" color="textSecondary">Divisao em {itemSplits.length} membro(s)</Text>
-                          ) : null}
-                        </VStack>
-                        <HStack gap={1.5} alignItems="center">
-                          {parseReceiptUris(item.image_url).length > 0 ? (
-                            <HStack gap={0.5} alignItems="center">
-                              <Icon name="receipt" size={14} color={theme.colors.textTertiary} />
-                              {parseReceiptUris(item.image_url).length > 1 ? (
-                                <Text variant="caption" color="textTertiary">{parseReceiptUris(item.image_url).length}</Text>
+                    <Pressable onPress={() => openEditExpense(item)} accessibilityLabel={`${item.category}, ${item.currency} ${formatBRL(item.amount)}`} accessibilityRole="button">
+                      <Card variant="surface">
+                        <HStack p={4} gap={4} alignItems="center" justifyContent="space-between">
+                          <HStack gap={4} alignItems="center" flex={1}>
+                            <Box
+                              width={48}
+                              height={48}
+                              borderRadius="xl"
+                              alignItems="center"
+                              justifyContent="center"
+                              bg={conf.color + '18'}
+                              flexShrink={0}
+                            >
+                              <Icon name={conf.icon} size={20} color={conf.color} />
+                            </Box>
+                            <VStack gap={1.5} flex={1}>
+                              <Text variant="body" weight="700">
+                                {item.description || item.category}
+                              </Text>
+                              <HStack gap={1.5} alignItems="center">
+                                <Text variant="caption" color="textSecondary" weight="600">
+                                  {formatExpenseDate(item.date)} • {item.category}
+                                </Text>
+                                <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: theme.colors.textTertiary }} />
+                                <Text variant="caption" weight="700" style={{ color: conf.color }}>
+                                  {payerLabel === 'Voce' ? 'Voce pagou' : `${payerLabel} pagou`}
+                                </Text>
+                              </HStack>
+                              {itemSplits.length > 0 ? (
+                                <Text variant="caption" color="textSecondary" weight="600">
+                                  Divisao em {itemSplits.length} membro(s)
+                                </Text>
                               ) : null}
-                            </HStack>
-                          ) : null}
-                          <Text variant="body" weight="700">
-                            {item.currency === 'BRL' ? 'R$' : item.currency} {formatBRL(item.amount)}
-                          </Text>
+                            </VStack>
+                          </HStack>
+                          <VStack alignItems="flex-end" gap={1}>
+                            {parseReceiptUris(item.image_url).length > 0 ? (
+                              <HStack gap={1} alignItems="center">
+                                <Icon name="receipt" size={14} color={theme.colors.textTertiary} />
+                                {parseReceiptUris(item.image_url).length > 1 ? (
+                                  <Text variant="caption" color="textTertiary" weight="700">
+                                    {parseReceiptUris(item.image_url).length}
+                                  </Text>
+                                ) : null}
+                              </HStack>
+                            ) : null}
+                            <Text variant="body" weight="800" style={{ color: conf.color, fontSize: 16 }}>
+                              R$ {formatBRL(item.amount)}
+                            </Text>
+                          </VStack>
                         </HStack>
-                      </HStack>
-                    </Card>
-                  </Pressable>
+                      </Card>
+                    </Pressable>
                   </View>
                 )
           }}
@@ -824,5 +976,4 @@ export default function ExpensesScreen() {
 const styles = StyleSheet.create({
   budgetTrack: { height: 8, backgroundColor: '#ECECF0', borderRadius: 6, overflow: 'hidden' },
   budgetBar: { height: 8, borderRadius: 6 },
-  payerBullet: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4B5563' },
 })
