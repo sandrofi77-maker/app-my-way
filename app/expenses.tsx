@@ -438,7 +438,7 @@ export default function ExpensesScreen() {
 
   return (
     <DesktopLayout>
-      <Box flex={1} bg="background">
+      <Box flex={1} bg="background" style={{ position: 'relative' }}>
         <Box bg="surface" borderBottomWidth={0.5} borderColor="border" px={5} pt={14} pb={4}>
           <HStack alignItems="center">
             <IconButton accessibilityLabel="Voltar" onPress={() => router.back()} variant="ghost">
@@ -459,11 +459,11 @@ export default function ExpensesScreen() {
           maxToRenderPerBatch={10}
           windowSize={5}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: 80 }}
           ListHeaderComponent={<>
           {/* HERO BUDGET CARD */}
           {budgetAmount != null && (
-            <Card variant="surface" style={{ marginTop: 16, marginBottom: 24 }}>
+            <Card variant="surface" style={{ marginTop: 16, marginBottom: 48 }}>
               <VStack p={6} gap={5}>
                 <HStack justifyContent="space-between" alignItems="flex-start">
                   <VStack gap={1}>
@@ -510,7 +510,7 @@ export default function ExpensesScreen() {
 
           {/* DIVISÃO DE CUSTOS SECTION */}
           {paymentsSummary.length > 0 && (
-            <VStack gap={4} mb={6}>
+            <VStack gap={4} mb={12}>
               <Text
                 variant="overline"
                 color="textTertiary"
@@ -577,7 +577,7 @@ export default function ExpensesScreen() {
 
           {/* CATEGORIAS SECTION */}
           {categoryTotals.length > 0 && (
-            <VStack gap={4} mb={6}>
+            <VStack gap={4} mb={12}>
               <HStack justifyContent="space-between" alignItems="center" px={5}>
                 <Text
                   variant="overline"
@@ -720,9 +720,14 @@ export default function ExpensesScreen() {
                   </View>
                 )
           }}
+          ListFooterComponent={<View style={{ height: 100 }} />}
         />
 
-        <FAB accessibilityLabel="Novo gasto" onPress={openNewExpense}>
+        <FAB 
+          style={{ position: 'absolute', bottom: 24, right: 24, zIndex: 50 }}
+          accessibilityLabel="Novo gasto" 
+          onPress={openNewExpense}
+        >
           <Icon name="add" size={28} color="#fff" />
         </FAB>
 
