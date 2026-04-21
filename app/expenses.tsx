@@ -472,20 +472,6 @@ export default function ExpensesScreen() {
                     </Text>
                     <Text variant="display" weight="800">R$ {formatBRL(total)}</Text>
                   </VStack>
-                  {tripTitle ? (
-                    <Box
-                      bg="surfaceHigh"
-                      borderRadius="full"
-                      px={4}
-                      py={2}
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <Text variant="bodySmall" weight="700" color="brand" style={{ fontSize: 10, letterSpacing: 0.5 }}>
-                        {(tripTitle as string).substring(0, 15)}
-                      </Text>
-                    </Box>
-                  ) : null}
                 </HStack>
 
                 {/* Progress Bar Section */}
