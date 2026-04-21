@@ -463,7 +463,7 @@ export default function ExpensesScreen() {
           ListHeaderComponent={<>
           {/* HERO BUDGET CARD */}
           {budgetAmount != null && (
-            <Card variant="surface" style={{ marginHorizontal: 20, marginTop: 16, marginBottom: 24 }}>
+            <Card variant="surface" style={{ marginTop: 16, marginBottom: 24 }}>
               <VStack p={6} gap={5}>
                 <HStack justifyContent="space-between" alignItems="flex-start">
                   <VStack gap={1}>
