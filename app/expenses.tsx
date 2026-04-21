@@ -468,9 +468,9 @@ export default function ExpensesScreen() {
                 <HStack justifyContent="space-between" alignItems="flex-start">
                   <VStack gap={1}>
                     <Text variant="overline" color="textTertiary" weight="700" style={{ fontSize: 10, letterSpacing: 1 }}>
-                      GASTO TOTAL
+                      GASTO ATUAL
                     </Text>
-                    <Text variant="display" weight="800">R$ {formatBRL(budgetAmount)}</Text>
+                    <Text variant="display" weight="800">R$ {formatBRL(total)}</Text>
                   </VStack>
                   {tripTitle ? (
                     <Box
@@ -491,7 +491,7 @@ export default function ExpensesScreen() {
                 {/* Progress Bar Section */}
                 <VStack gap={3}>
                   <HStack justifyContent="space-between">
-                    <Text variant="bodySmall" color="textSecondary" weight="600">Gasto Atual</Text>
+                    <Text variant="bodySmall" color="textSecondary" weight="600">Progresso</Text>
                     <Text variant="bodySmall" weight="700" style={{ color: theme.colors.brand }}>
                       {Math.round(budgetPct)}% Utilizado
                     </Text>
@@ -502,10 +502,10 @@ export default function ExpensesScreen() {
                   <HStack justifyContent="space-between" alignItems="flex-end">
                     <VStack gap={0.5}>
                       <Text variant="overline" color="textTertiary" weight="700" style={{ fontSize: 9, letterSpacing: 0.5 }}>
-                        GASTO
+                        GASTO TOTAL
                       </Text>
                       <Text variant="subtitle" weight="800" style={{ color: theme.colors.brand }}>
-                        R$ {formatBRL(total)}
+                        R$ {formatBRL(budgetAmount)}
                       </Text>
                     </VStack>
                     <VStack gap={0.5} alignItems="flex-end">
